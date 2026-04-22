@@ -80,7 +80,8 @@ export class ConversationRdbService {
 
   async insertConversation(conversation: Conversation): Promise<void> {
     const store = this.requireStore();
-    await store.execute(
+    await this.executeSql(
+      store,
       'INSERT OR REPLACE INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)',
       [conversation.id, conversation.title, conversation.createdAt, conversation.updatedAt]
     );
@@ -88,7 +89,8 @@ export class ConversationRdbService {
 
   async updateConversationTitle(id: string, title: string, updatedAt: number): Promise<void> {
     const store = this.requireStore();
-    await store.execute(
+    await this.executeSql(
+      store,
       'UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?',
       [title, updatedAt, id]
     );
@@ -96,21 +98,24 @@ export class ConversationRdbService {
 
   async deleteConversation(id: string): Promise<void> {
     const store = this.requireStore();
-    await store.execute(
+    await this.executeSql(
+      store,
       'DELETE FROM message_search_sources WHERE message_id IN (SELECT id FROM messages WHERE conversation_id = ?)',
       [id]
     );
-    await store.execute(
+    await this.executeSql(
+      store,
       'DELETE FROM message_tool_calls WHERE message_id IN (SELECT id FROM messages WHERE conversation_id = ?)',
       [id]
     );
-    await store.execute('DELETE FROM messages WHERE conversation_id = ?', [id]);
-    await store.execute('DELETE FROM conversations WHERE id = ?', [id]);
+    await this.executeSql(store, 'DELETE FROM messages WHERE conversation_id = ?', [id]);
+    await this.executeSql(store, 'DELETE FROM conversations WHERE id = ?', [id]);
   }
 
   async insertMessage(message: ChatMessage): Promise<void> {
     const store = this.requireStore();
-    await store.execute(
+    await this.executeSql(
+      store,
       'INSERT OR REPLACE INTO messages (' +
         'id, conversation_id, role, content, reasoning_content, status, error_message, response_id, model, finish_reason, system_fingerprint, ' +
         'prompt_tokens, completion_tokens, total_tokens, reasoning_tokens, cache_hit_tokens, cache_miss_tokens, created_at, updated_at' +
@@ -122,7 +127,8 @@ export class ConversationRdbService {
 
   async updateMessage(message: ChatMessage): Promise<void> {
     const store = this.requireStore();
-    await store.execute(
+    await this.executeSql(
+      store,
       'UPDATE messages SET ' +
         'conversation_id = ?, role = ?, content = ?, reasoning_content = ?, status = ?, error_message = ?, response_id = ?, model = ?, ' +
         'finish_reason = ?, system_fingerprint = ?, prompt_tokens = ?, completion_tokens = ?, total_tokens = ?, reasoning_tokens = ?, ' +
@@ -154,9 +160,9 @@ export class ConversationRdbService {
 
   async deleteMessage(id: string): Promise<void> {
     const store = this.requireStore();
-    await store.execute('DELETE FROM message_search_sources WHERE message_id = ?', [id]);
-    await store.execute('DELETE FROM message_tool_calls WHERE message_id = ?', [id]);
-    await store.execute('DELETE FROM messages WHERE id = ?', [id]);
+    await this.executeSql(store, 'DELETE FROM message_search_sources WHERE message_id = ?', [id]);
+    await this.executeSql(store, 'DELETE FROM message_tool_calls WHERE message_id = ?', [id]);
+    await this.executeSql(store, 'DELETE FROM messages WHERE id = ?', [id]);
   }
 
   async deleteMessages(ids: string[]): Promise<void> {
@@ -168,10 +174,9 @@ export class ConversationRdbService {
   async loadConversationsWithMessages(): Promise<Conversation[]> {
     const store = this.requireStore();
     const conversations: Conversation[] = [];
-    const resultSet = await store.querySql(
-      'SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC'
-    );
+    let resultSet: relationalStore.ResultSet | null = null;
     try {
+      resultSet = await store.querySql('SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC');
       while (resultSet.goToNextRow()) {
         const conversation: Conversation = new Conversation();
         conversation.id = resultSet.getString(resultSet.getColumnIndex('id'));
@@ -181,8 +186,15 @@ export class ConversationRdbService {
         conversation.messages = await this.loadMessages(conversation.id);
         conversations.push(conversation);
       }
+    } catch (err) {
+      throw this.toRdbError('Failed to load conversations.', err);
     } finally {
-      resultSet.close();
+      if (resultSet !== null) {
+        try {
+          resultSet.close();
+        } catch (_err) {
+        }
+      }
     }
     return conversations;
   }
@@ -190,11 +202,12 @@ export class ConversationRdbService {
   private async loadMessages(conversationId: string): Promise<ChatMessage[]> {
     const store = this.requireStore();
     const messages: ChatMessage[] = [];
-    const resultSet = await store.querySql(
-      'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC',
-      [conversationId]
-    );
+    let resultSet: relationalStore.ResultSet | null = null;
     try {
+      resultSet = await store.querySql(
+        'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC',
+        [conversationId]
+      );
       while (resultSet.goToNextRow()) {
         const message: ChatMessage = new ChatMessage();
         message.id = resultSet.getString(resultSet.getColumnIndex('id'));
@@ -220,8 +233,15 @@ export class ConversationRdbService {
         message.toolCalls = await this.loadToolCalls(message.id);
         messages.push(message);
       }
+    } catch (err) {
+      throw this.toRdbError('Failed to load messages.', err);
     } finally {
-      resultSet.close();
+      if (resultSet !== null) {
+        try {
+          resultSet.close();
+        } catch (_err) {
+        }
+      }
     }
     return messages;
   }
@@ -229,11 +249,12 @@ export class ConversationRdbService {
   private async loadSearchSources(messageId: string): Promise<SearchResult[]> {
     const store = this.requireStore();
     const sources: SearchResult[] = [];
-    const resultSet = await store.querySql(
-      'SELECT title, url, snippet, published_at, source FROM message_search_sources WHERE message_id = ? ORDER BY rank ASC',
-      [messageId]
-    );
+    let resultSet: relationalStore.ResultSet | null = null;
     try {
+      resultSet = await store.querySql(
+        'SELECT title, url, snippet, published_at, source FROM message_search_sources WHERE message_id = ? ORDER BY rank ASC',
+        [messageId]
+      );
       while (resultSet.goToNextRow()) {
         sources.push({
           title: resultSet.getString(resultSet.getColumnIndex('title')),
@@ -243,8 +264,15 @@ export class ConversationRdbService {
           source: resultSet.getString(resultSet.getColumnIndex('source'))
         });
       }
+    } catch (err) {
+      throw this.toRdbError('Failed to load search sources.', err);
     } finally {
-      resultSet.close();
+      if (resultSet !== null) {
+        try {
+          resultSet.close();
+        } catch (_err) {
+        }
+      }
     }
     return sources;
   }
@@ -252,11 +280,12 @@ export class ConversationRdbService {
   private async loadToolCalls(messageId: string): Promise<ToolCallRecord[]> {
     const store = this.requireStore();
     const records: ToolCallRecord[] = [];
-    const resultSet = await store.querySql(
-      'SELECT id, message_id, tool_call_id, name, arguments_json, result_json, status, created_at FROM message_tool_calls WHERE message_id = ? ORDER BY created_at ASC',
-      [messageId]
-    );
+    let resultSet: relationalStore.ResultSet | null = null;
     try {
+      resultSet = await store.querySql(
+        'SELECT id, message_id, tool_call_id, name, arguments_json, result_json, status, created_at FROM message_tool_calls WHERE message_id = ? ORDER BY created_at ASC',
+        [messageId]
+      );
       while (resultSet.goToNextRow()) {
         records.push({
           id: resultSet.getString(resultSet.getColumnIndex('id')),
@@ -269,26 +298,35 @@ export class ConversationRdbService {
           createdAt: resultSet.getLong(resultSet.getColumnIndex('created_at'))
         });
       }
+    } catch (err) {
+      throw this.toRdbError('Failed to load tool calls.', err);
     } finally {
-      resultSet.close();
+      if (resultSet !== null) {
+        try {
+          resultSet.close();
+        } catch (_err) {
+        }
+      }
     }
     return records;
   }
 
   private async replaceMessageDetails(message: ChatMessage): Promise<void> {
     const store = this.requireStore();
-    await store.execute('DELETE FROM message_search_sources WHERE message_id = ?', [message.id]);
-    await store.execute('DELETE FROM message_tool_calls WHERE message_id = ?', [message.id]);
+    await this.executeSql(store, 'DELETE FROM message_search_sources WHERE message_id = ?', [message.id]);
+    await this.executeSql(store, 'DELETE FROM message_tool_calls WHERE message_id = ?', [message.id]);
     for (let i = 0; i < message.searchSources.length; i++) {
       const source: SearchResult = message.searchSources[i];
-      await store.execute(
+      await this.executeSql(
+        store,
         'INSERT INTO message_search_sources (id, message_id, tool_call_id, title, url, snippet, published_at, source, rank, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [`src_${message.id}_${i}`, message.id, '', source.title, source.url, source.snippet, source.publishedAt, source.source, i, Date.now()]
       );
     }
     for (let i = 0; i < message.toolCalls.length; i++) {
       const record: ToolCallRecord = message.toolCalls[i];
-      await store.execute(
+      await this.executeSql(
+        store,
         'INSERT OR REPLACE INTO message_tool_calls (id, message_id, tool_call_id, name, arguments_json, result_json, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         [record.id, record.messageId, record.toolCallId, record.name, record.argumentsJson, record.resultJson, record.status, record.createdAt]
       );
@@ -336,12 +374,16 @@ export class ConversationRdbService {
   }
 
   private async createSchema(store: relationalStore.RdbStore): Promise<void> {
-    await store.execute(SQL_CREATE_CONVERSATIONS);
-    await store.execute(SQL_CREATE_MESSAGES);
-    await store.execute(SQL_CREATE_MESSAGE_INDEX);
-    await store.execute(SQL_CREATE_TOOL_CALLS);
-    await store.execute(SQL_CREATE_SEARCH_SOURCES);
-    store.version = DB_VERSION;
+    await this.executeSql(store, SQL_CREATE_CONVERSATIONS);
+    await this.executeSql(store, SQL_CREATE_MESSAGES);
+    await this.executeSql(store, SQL_CREATE_MESSAGE_INDEX);
+    await this.executeSql(store, SQL_CREATE_TOOL_CALLS);
+    await this.executeSql(store, SQL_CREATE_SEARCH_SOURCES);
+    try {
+      store.version = DB_VERSION;
+    } catch (err) {
+      throw this.toRdbError('Failed to set conversation database version.', err);
+    }
   }
 
   private requireStore(): relationalStore.RdbStore {
@@ -378,5 +420,28 @@ export class ConversationRdbService {
       return SendStatus.CANCELED;
     }
     return SendStatus.IDLE;
+  }
+
+  private async executeSql(
+    store: relationalStore.RdbStore,
+    sql: string,
+    args?: relationalStore.ValueType[]
+  ): Promise<void> {
+    try {
+      if (args === undefined) {
+        await store.execute(sql);
+      } else {
+        await store.execute(sql, args);
+      }
+    } catch (err) {
+      throw this.toRdbError('Failed to execute conversation database statement.', err);
+    }
+  }
+
+  private toRdbError(message: string, err: Object): Error {
+    if (err instanceof Error) {
+      return new Error(`${message} ${err.message}`);
+    }
+    return new Error(message);
   }
 }

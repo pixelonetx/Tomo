@@ -87,12 +87,23 @@
   - 详情展示 role、status、model、finish reason、response id、prompt / completion / reasoning / total tokens、cache hit / miss。
   - 详情 sheet 支持复制消息正文和复制完整 metadata。
   - 复制操作接入系统剪贴板，并使用 UIContext toast 提示结果。
+- 收敛 `ConversationRdbService` RDB API 编译警告：
+  - `execute` 调用统一走 `executeSql()`，同步抛错和 Promise 失败统一包装。
+  - `querySql` 调用显式放入 `try/catch/finally`，确保 `ResultSet` 始终关闭。
+  - `goToNextRow`、`getString`、`getLong`、`close` 等可能抛异常点均进入明确异常边界。
+  - `assembleHap` 不再输出 `ConversationRdbService` 的 `Function may throw exceptions` 警告。
+- 新增 Markdown / 代码块基础渲染：
+  - 新增轻量 `MarkdownParser`，支持段落、标题、列表、引用、inline code、fenced code block。
+  - Assistant 正文改为 Markdown 全宽排版，用户消息继续保持右侧气泡纯文本。
+  - 代码块使用 `code_block_bg`、等宽字体、横向滚动。
+  - 代码块顶部显示语言和 `Copy` 入口，并复用系统剪贴板复制逻辑。
+  - 新增本地单元测试覆盖 Markdown block 和 inline code 解析。
 
 ### 验证
 
 - `D:\dev\Huawei\command-line-tools\bin\hvigorw.bat assembleHap --no-daemon`
   - 输出 `BUILD SUCCESSFUL`。
-  - 首页消息详情相关改动无新增 ArkTS 编译警告；仍存在 `ConversationRdbService` 当前 RDB API 异常提示。
+  - 无 `ConversationRdbService` RDB API 异常处理警告。
 - `D:\dev\Huawei\command-line-tools\bin\hvigorw.bat test --no-daemon`
   - 通过，输出 `BUILD SUCCESSFUL`。
 - `D:\dev\Huawei\command-line-tools\bin\codelinter.bat .`
@@ -101,6 +112,6 @@
 
 ### 下一步
 
-1. 收敛 `ConversationRdbService` 中 RDB API 可能抛异常的编译警告。
-2. 实现 Markdown / 代码块基础渲染和复制。
-3. 接入联网搜索 Tool Calls 的受控 `web_search` 循环。
+1. 补齐 Markdown 链接点击和更完整的列表/分隔线渲染。
+2. 接入联网搜索 Tool Calls 的受控 `web_search` 循环。
+3. 继续推进 Reasoning 折叠展示和搜索来源详情。

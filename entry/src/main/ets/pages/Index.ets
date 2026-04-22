@@ -2,6 +2,7 @@ import { common } from '@kit.AbilityKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { APP_NAME } from '../shared/Constants';
 import { ChatMessage, Conversation, MessageRole, SendStatus } from '../models/ChatModels';
+import { MarkdownBlock, MarkdownBlockType, MarkdownInlineSegment, parseMarkdown } from '../shared/MarkdownParser';
 import { ChatViewModel } from '../viewmodels/ChatViewModel';
 
 @Entry
@@ -126,10 +127,7 @@ struct Index {
               .fontColor($r('app.color.text_secondary'))
               .lineHeight(19)
           }
-          Text(message.content)
-            .fontSize(this.vm.fontSize)
-            .fontColor($r('app.color.text_primary'))
-            .lineHeight(22)
+          this.MarkdownContent(message.content, this.vm.fontSize)
           if (message.status === SendStatus.FAILED && message.errorMessage.length > 0) {
             Text(message.errorMessage)
               .fontSize(Math.max(this.vm.fontSize - 2, 12))
@@ -186,6 +184,94 @@ struct Index {
         })
     }
     .width('100%')
+  }
+
+  @Builder
+  private MarkdownContent(content: string, fontSize: number) {
+    Column({ space: 10 }) {
+      ForEach(parseMarkdown(content), (block: MarkdownBlock, index: number) => {
+        if (block.type === MarkdownBlockType.CODE_BLOCK) {
+          this.CodeBlock(block.text, block.language, fontSize)
+        } else if (block.type === MarkdownBlockType.HEADING) {
+          this.InlineMarkdownText(block.segments, this.getHeadingFontSize(block.level, fontSize), FontWeight.Medium)
+        } else if (block.type === MarkdownBlockType.LIST_ITEM) {
+          Row({ space: 8 }) {
+            Text('•')
+              .fontSize(fontSize)
+              .fontColor($r('app.color.text_primary'))
+            this.InlineMarkdownText(block.segments, fontSize, FontWeight.Regular)
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Top)
+        } else if (block.type === MarkdownBlockType.QUOTE) {
+          Row({ space: 10 }) {
+            Divider()
+              .vertical(true)
+              .height('100%')
+              .width(2)
+              .color($r('app.color.divider'))
+            this.InlineMarkdownText(block.segments, Math.max(fontSize - 1, 12), FontWeight.Regular)
+          }
+          .width('100%')
+        } else {
+          this.InlineMarkdownText(block.segments, fontSize, FontWeight.Regular)
+        }
+      }, (block: MarkdownBlock, index: number): string => `${index}_${block.type}_${block.text.length}`)
+    }
+    .width('100%')
+  }
+
+  @Builder
+  private InlineMarkdownText(segments: MarkdownInlineSegment[], size: number, weight: FontWeight) {
+    Text() {
+      ForEach(segments, (segment: MarkdownInlineSegment, index: number) => {
+        Span(segment.text)
+          .fontSize(size)
+          .fontWeight(weight)
+          .fontColor(segment.isCode ? $r('app.color.text_secondary') : $r('app.color.text_primary'))
+          .fontFamily(segment.isCode ? 'monospace' : 'sans-serif')
+      }, (segment: MarkdownInlineSegment, index: number): string => `${index}_${segment.isCode}_${segment.text}`)
+    }
+    .lineHeight(Math.max(size + 7, 19))
+    .width('100%')
+  }
+
+  @Builder
+  private CodeBlock(code: string, language: string, fontSize: number) {
+    Column({ space: 8 }) {
+      Row() {
+        Text(language.length > 0 ? language : 'text')
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+          .layoutWeight(1)
+
+        Button('Copy')
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+          .backgroundColor(Color.Transparent)
+          .height(28)
+          .onClick((): void => {
+            this.copyText(code);
+          })
+      }
+      .width('100%')
+
+      Scroll() {
+        Text(code.length > 0 ? code : ' ')
+          .fontSize(Math.max(fontSize - 1, 12))
+          .fontFamily('monospace')
+          .fontColor($r('app.color.text_primary'))
+          .lineHeight(Math.max(fontSize + 5, 17))
+          .constraintSize({ minWidth: '100%' })
+      }
+      .width('100%')
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Auto)
+    }
+    .width('100%')
+    .padding(12)
+    .backgroundColor($r('app.color.code_block_bg'))
+    .borderRadius(8)
   }
 
   @Builder
@@ -541,6 +627,16 @@ struct Index {
 
   private getCurrentTitle(): string {
     return this.vm.getCurrentTitle();
+  }
+
+  private getHeadingFontSize(level: number, fontSize: number): number {
+    if (level <= 1) {
+      return fontSize + 5;
+    }
+    if (level === 2) {
+      return fontSize + 3;
+    }
+    return fontSize + 1;
   }
 
   private copyText(text: string): void {

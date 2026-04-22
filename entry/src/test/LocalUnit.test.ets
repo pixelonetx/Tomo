@@ -5,6 +5,7 @@ import { createDefaultSettings } from '../main/ets/models/SettingsModels';
 import { normalizeSearchResults } from '../main/ets/models/SearchModels';
 import { DeepSeekService, parseBalanceResponse, parseModelListResponse } from '../main/ets/services/DeepSeekService';
 import { mapDeepSeekError, parseSseChunk } from '../main/ets/services/DeepSeekSseParser';
+import { MarkdownBlockType, parseInlineMarkdown, parseMarkdown } from '../main/ets/shared/MarkdownParser';
 
 export default function localUnitTest() {
   describe('deepSeekClientFoundation', () => {
@@ -113,6 +114,24 @@ export default function localUnitTest() {
       expect(response?.isAvailable).assertTrue();
       expect(response?.balanceInfos.length).assertEqual(1);
       expect(response?.balanceInfos[0].currency).assertEqual('CNY');
+    });
+
+    it('parses basic markdown blocks', 0, () => {
+      const blocks = parseMarkdown('# Title\n\n- one\n> note\n```ts\nlet a = 1;\n```');
+      expect(blocks.length).assertEqual(4);
+      expect(blocks[0].type).assertEqual(MarkdownBlockType.HEADING);
+      expect(blocks[0].level).assertEqual(1);
+      expect(blocks[1].type).assertEqual(MarkdownBlockType.LIST_ITEM);
+      expect(blocks[2].type).assertEqual(MarkdownBlockType.QUOTE);
+      expect(blocks[3].type).assertEqual(MarkdownBlockType.CODE_BLOCK);
+      expect(blocks[3].language).assertEqual('ts');
+    });
+
+    it('parses inline code segments', 0, () => {
+      const segments = parseInlineMarkdown('Use `hvigorw` now');
+      expect(segments.length).assertEqual(3);
+      expect(segments[1].text).assertEqual('hvigorw');
+      expect(segments[1].isCode).assertTrue();
     });
   });
 }
