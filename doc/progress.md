@@ -64,6 +64,23 @@
   - 支持通过 `/models` 检查 API Key 连通性，并确认 `deepseek-chat` / `deepseek-reasoner` 可用。
   - 页面明确提示第一版 API Key 保存在应用沙箱 Preferences，后续迁移系统安全存储。
 - `PreferencesService` 临时支持保存、读取和清除 API Key，并同步维护 `apiKeyConfigured`。
+- 新增 `ConversationRdbService`：
+  - 创建 `conversations`、`messages`、`message_tool_calls`、`message_search_sources` 表。
+  - 创建 `idx_messages_conversation_time` 索引。
+  - 支持会话 insert / rename / delete。
+  - 支持消息 insert-or-replace / update / delete。
+  - 删除会话时同步删除消息、tool calls 和搜索来源。
+  - 删除消息时同步删除 tool calls 和搜索来源。
+  - 支持加载会话及其消息、搜索来源、tool calls。
+- 新增 `ConversationService` 作为 ViewModel 与 RDB 的服务边界。
+- `ChatViewModel` 接入增量持久化：
+  - 启动时初始化 RDB 并加载历史会话。
+  - 无历史会话时创建新会话并落库。
+  - 新建、删除、重命名会话同步持久化。
+  - 发送消息时插入 user / assistant 消息。
+  - 流式输出期间节流保存 assistant 消息。
+  - 完成、失败、停止生成时强制保存最终 assistant 状态。
+  - 删除消息和重试消息同步删除数据库记录，避免脏消息恢复。
 
 ### 验证
 
@@ -77,6 +94,6 @@
 
 ### 下一步
 
-1. 实现 `ConversationRdbService` 和 `ConversationService`，接入增量保存。
-2. 将 `ChatViewModel` 的内存会话替换为服务层持久化会话。
-3. 实现消息详情和复制入口，展示模型、finish reason 和 usage。
+1. 实现消息详情和复制入口，展示模型、finish reason 和 usage。
+2. 实现 Markdown / 代码块基础渲染和复制。
+3. 接入联网搜索 Tool Calls 的受控 `web_search` 循环。

@@ -10,6 +10,7 @@ import {
   createMessage
 } from '../models/ChatModels';
 import { AppSettings, createDefaultSettings } from '../models/SettingsModels';
+import { ConversationService } from '../services/ConversationService';
 import { DeepSeekService } from '../services/DeepSeekService';
 import { PreferencesService } from '../services/PreferencesService';
 
@@ -36,11 +37,18 @@ export class ChatViewModel {
   private settings: AppSettings = createDefaultSettings();
   private preferencesService: PreferencesService = new PreferencesService();
   private deepSeekService: DeepSeekService = new DeepSeekService();
+  private conversationService: ConversationService = new ConversationService();
+  private lastAssistantPersistAt: number = 0;
 
   init(context: common.Context): void {
     if (this.initialized) {
       return;
     }
+    this.initialized = true;
+    this.initialize(context);
+  }
+
+  private async initialize(context: common.Context): Promise<void> {
     try {
       this.preferencesService.init(context);
       this.settings = this.preferencesService.loadSettings();
@@ -49,8 +57,19 @@ export class ChatViewModel {
     }
     this.applySettings(this.settings);
     this.restoreApiKey();
-    this.createNewConversation();
-    this.initialized = true;
+    try {
+      await this.conversationService.init(context);
+      this.conversations = await this.conversationService.loadConversations();
+    } catch (err) {
+      this.conversations = [];
+      this.errorMessage = '会话数据库初始化失败，本次启动仅使用内存会话。';
+    }
+    if (this.conversations.length > 0) {
+      this.currentConversationId = this.conversations[0].id;
+      this.messages = this.conversations[0].messages;
+      return;
+    }
+    await this.createNewConversation();
   }
 
   setApiKey(key: string): void {
@@ -102,12 +121,13 @@ export class ChatViewModel {
     this.settingsMessage = 'Connected, but required models were not both found.';
   }
 
-  createNewConversation(): void {
+  async createNewConversation(): Promise<void> {
     const conversation: Conversation = createConversation('New chat');
     this.conversations = [conversation].concat(this.conversations);
     this.currentConversationId = conversation.id;
     this.messages = [];
     this.errorMessage = '';
+    await this.persistConversation(conversation);
   }
 
   switchConversation(id: string): void {
@@ -120,7 +140,7 @@ export class ChatViewModel {
     this.errorMessage = '';
   }
 
-  deleteConversation(id: string): void {
+  async deleteConversation(id: string): Promise<void> {
     const nextConversations: Conversation[] = [];
     for (let i = 0; i < this.conversations.length; i++) {
       if (this.conversations[i].id !== id) {
@@ -135,8 +155,9 @@ export class ChatViewModel {
       this.currentConversationId = this.conversations[0].id;
       this.messages = this.conversations[0].messages;
     } else {
-      this.createNewConversation();
+      await this.createNewConversation();
     }
+    await this.persistDeleteConversation(id);
   }
 
   async sendMessage(): Promise<void> {
@@ -157,6 +178,8 @@ export class ChatViewModel {
     this.isLoading = true;
     this.errorMessage = '';
     this.updateCurrentConversation(content);
+    await this.persistMessage(userMessage);
+    await this.persistMessage(assistantMessage);
 
     await this.deepSeekService.sendStreamChat(this.toApiMessages(this.messages), this.modelMode, {
       onContent: (chunk: string): void => {
@@ -194,6 +217,10 @@ export class ChatViewModel {
     }
     this.messages = updated;
     this.syncCurrentMessages();
+    const latest: ChatMessage | null = this.findMessageByStatus(SendStatus.CANCELED) ?? this.findMessageByStatus(SendStatus.FAILED);
+    if (latest !== null) {
+      this.persistMessage(latest);
+    }
   }
 
   async retryLastMessage(): Promise<void> {
@@ -206,12 +233,14 @@ export class ChatViewModel {
     }
     const last: ChatMessage = updated[updated.length - 1];
     if (last.role === MessageRole.ASSISTANT) {
+      await this.persistDeleteMessage(last.id);
       updated.pop();
     }
     const userMessage: ChatMessage = updated[updated.length - 1];
     if (userMessage.role !== MessageRole.USER) {
       return;
     }
+    await this.persistDeleteMessage(userMessage.id);
     updated.pop();
     this.messages = updated;
     this.inputText = userMessage.content;
@@ -228,6 +257,7 @@ export class ChatViewModel {
     }
     this.messages = nextMessages;
     this.syncCurrentMessages();
+    this.persistDeleteMessage(id);
   }
 
   renameConversation(id: string, title: string): void {
@@ -240,6 +270,7 @@ export class ChatViewModel {
       if (conversations[i].id === id) {
         conversations[i].title = createConversationTitle(cleanTitle);
         conversations[i].updatedAt = Date.now();
+        this.persistRenameConversation(conversations[i]);
         break;
       }
     }
@@ -390,7 +421,7 @@ export class ChatViewModel {
     this.updateAssistantMessage(id, (message: ChatMessage): void => {
       message.status = SendStatus.FAILED;
       message.errorMessage = errorMessage;
-    });
+    }, true);
   }
 
   private completeAssistantMessage(id: string, metadata: ResponseMetadata | null, usage: UsageInfo | null): void {
@@ -413,10 +444,10 @@ export class ChatViewModel {
       if (message.status === SendStatus.SENDING) {
         message.status = SendStatus.SUCCESS;
       }
-    });
+    }, true);
   }
 
-  private updateAssistantMessage(id: string, updater: (message: ChatMessage) => void): void {
+  private updateAssistantMessage(id: string, updater: (message: ChatMessage) => void, forcePersist: boolean = false): void {
     const updated: ChatMessage[] = this.messages.slice();
     for (let i = 0; i < updated.length; i++) {
       if (updated[i].id === id) {
@@ -427,5 +458,77 @@ export class ChatViewModel {
     }
     this.messages = updated;
     this.syncCurrentMessages();
+    this.persistAssistantMessage(updated, id, forcePersist);
+  }
+
+  private persistAssistantMessage(messages: ChatMessage[], id: string, force: boolean): void {
+    const now: number = Date.now();
+    if (!force && now - this.lastAssistantPersistAt < 750) {
+      return;
+    }
+    const message: ChatMessage | null = this.findMessageIn(messages, id);
+    if (message === null) {
+      return;
+    }
+    this.lastAssistantPersistAt = now;
+    this.persistMessage(message);
+  }
+
+  private async persistConversation(conversation: Conversation): Promise<void> {
+    try {
+      await this.conversationService.createConversation(conversation);
+    } catch (err) {
+      this.errorMessage = '会话保存失败。';
+    }
+  }
+
+  private async persistRenameConversation(conversation: Conversation): Promise<void> {
+    try {
+      await this.conversationService.renameConversation(conversation.id, conversation.title, conversation.updatedAt);
+    } catch (err) {
+      this.errorMessage = '会话标题保存失败。';
+    }
+  }
+
+  private async persistDeleteConversation(id: string): Promise<void> {
+    try {
+      await this.conversationService.deleteConversation(id);
+    } catch (err) {
+      this.errorMessage = '会话删除失败。';
+    }
+  }
+
+  private async persistMessage(message: ChatMessage): Promise<void> {
+    try {
+      await this.conversationService.updateMessage(message);
+    } catch (err) {
+      this.errorMessage = '消息保存失败。';
+    }
+  }
+
+  private async persistDeleteMessage(id: string): Promise<void> {
+    try {
+      await this.conversationService.deleteMessage(id);
+    } catch (err) {
+      this.errorMessage = '消息删除失败。';
+    }
+  }
+
+  private findMessageByStatus(status: SendStatus): ChatMessage | null {
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      if (this.messages[i].status === status) {
+        return this.messages[i];
+      }
+    }
+    return null;
+  }
+
+  private findMessageIn(messages: ChatMessage[], id: string): ChatMessage | null {
+    for (let i = 0; i < messages.length; i++) {
+      if (messages[i].id === id) {
+        return messages[i];
+      }
+    }
+    return null;
   }
 }
