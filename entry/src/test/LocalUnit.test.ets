@@ -1,6 +1,7 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
 import { ModelMode, getDeepSeekModelId } from '../main/ets/models/ApiModels';
 import { MessageRole, createConversationTitle, createMessage } from '../main/ets/models/ChatModels';
+import { createDefaultSettings } from '../main/ets/models/SettingsModels';
 import { normalizeSearchResults } from '../main/ets/models/SearchModels';
 import { mapDeepSeekError, parseSseChunk } from '../main/ets/services/DeepSeekSseParser';
 
@@ -31,6 +32,15 @@ export default function localUnitTest() {
       expect(message.conversationId).assertEqual('conv_1');
       expect(message.role).assertEqual(MessageRole.USER);
       expect(message.content).assertEqual('hello');
+    });
+
+    it('loads conservative default settings', 0, () => {
+      const settings = createDefaultSettings();
+      expect(settings.modelMode).assertEqual(ModelMode.CHAT);
+      expect(settings.fontSize).assertEqual(15);
+      expect(settings.backgroundEnabled).assertFalse();
+      expect(settings.webSearchDefaultEnabled).assertFalse();
+      expect(settings.searchMaxResults).assertEqual(5);
     });
 
     it('parses DeepSeek stream content and reasoning chunks', 0, () => {

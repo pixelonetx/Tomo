@@ -30,6 +30,14 @@
   - SSE content / reasoning / usage / `[DONE]` 解析。
   - 搜索结果 URL 去重和最多 5 条限制。
   - DeepSeek 错误码映射。
+- 新增 `PreferencesService`：
+  - 使用 HarmonyOS Preferences 保存轻量用户设置。
+  - 集中定义 Preferences key。
+  - 支持冷启动默认值恢复。
+  - 支持保存、重置设置、标记 API Key / 搜索 API Key 配置状态。
+  - 写入后统一 `flush`。
+  - 将搜索结果数量限制在 1 到 5。
+- 新增默认设置测试，覆盖模型、字号、背景、联网搜索默认值。
 
 ### 验证
 
@@ -43,6 +51,6 @@
 
 ### 下一步
 
-1. 实现 `PreferencesService`，集中管理模型模式、主题、字号、背景、联网搜索默认值和 API Key 配置状态。
-2. 实现 `DeepSeekService` 的真实 `requestInStream` 流式请求、取消生成、模型列表和余额查询。
-3. 将首页临时内存会话替换为 `ChatViewModel`，为后续 RDB 持久化做清晰边界。
+1. 实现 `DeepSeekService` 的真实 `requestInStream` 流式请求、取消生成、模型列表和余额查询。
+2. 将首页临时内存会话替换为 `ChatViewModel`，为后续 RDB 持久化做清晰边界。
+3. 实现 `ConversationRdbService` 和 `ConversationService`，接入增量保存。
