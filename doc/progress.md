@@ -81,11 +81,18 @@
   - 流式输出期间节流保存 assistant 消息。
   - 完成、失败、停止生成时强制保存最终 assistant 状态。
   - 删除消息和重试消息同步删除数据库记录，避免脏消息恢复。
+- 新增消息操作和详情入口：
+  - 每条消息支持复制正文。
+  - 每条消息支持打开详情 sheet。
+  - 详情展示 role、status、model、finish reason、response id、prompt / completion / reasoning / total tokens、cache hit / miss。
+  - 详情 sheet 支持复制消息正文和复制完整 metadata。
+  - 复制操作接入系统剪贴板，并使用 UIContext toast 提示结果。
 
 ### 验证
 
 - `D:\dev\Huawei\command-line-tools\bin\hvigorw.bat assembleHap --no-daemon`
   - 输出 `BUILD SUCCESSFUL`。
+  - 首页消息详情相关改动无新增 ArkTS 编译警告；仍存在 `ConversationRdbService` 当前 RDB API 异常提示。
 - `D:\dev\Huawei\command-line-tools\bin\hvigorw.bat test --no-daemon`
   - 通过，输出 `BUILD SUCCESSFUL`。
 - `D:\dev\Huawei\command-line-tools\bin\codelinter.bat .`
@@ -94,6 +101,6 @@
 
 ### 下一步
 
-1. 实现消息详情和复制入口，展示模型、finish reason 和 usage。
+1. 收敛 `ConversationRdbService` 中 RDB API 可能抛异常的编译警告。
 2. 实现 Markdown / 代码块基础渲染和复制。
 3. 接入联网搜索 Tool Calls 的受控 `web_search` 循环。

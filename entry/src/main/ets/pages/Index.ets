@@ -1,4 +1,5 @@
 import { common } from '@kit.AbilityKit';
+import { pasteboard } from '@kit.BasicServicesKit';
 import { APP_NAME } from '../shared/Constants';
 import { ChatMessage, Conversation, MessageRole, SendStatus } from '../models/ChatModels';
 import { ChatViewModel } from '../viewmodels/ChatViewModel';
@@ -8,6 +9,8 @@ import { ChatViewModel } from '../viewmodels/ChatViewModel';
 struct Index {
   @State isSidebarOpen: boolean = false;
   @State showApiKeySheet: boolean = false;
+  @State showMessageDetailSheet: boolean = false;
+  @State selectedMessageId: string = '';
   @State vm: ChatViewModel = new ChatViewModel();
 
   aboutToAppear(): void {
@@ -36,6 +39,14 @@ struct Index {
       dragBar: true,
       onDisappear: (): void => {
         this.showApiKeySheet = false;
+      }
+    })
+    .bindSheet(this.showMessageDetailSheet, this.MessageDetailSheetContent(), {
+      height: SheetSize.FIT_CONTENT,
+      showClose: true,
+      dragBar: true,
+      onDisappear: (): void => {
+        this.showMessageDetailSheet = false;
       }
     })
   }
@@ -130,6 +141,51 @@ struct Index {
     }
     .width('100%')
     .padding({ top: 8, bottom: 8 })
+
+    Row({ space: 12 }) {
+      Blank()
+        .layoutWeight(message.role === MessageRole.USER ? 1 : 0)
+
+      Button('Copy')
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+        .backgroundColor(Color.Transparent)
+        .height(28)
+        .onClick((): void => {
+          this.copyText(message.content);
+        })
+
+      Button('Details')
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+        .backgroundColor(Color.Transparent)
+        .height(28)
+        .onClick((): void => {
+          this.selectedMessageId = message.id;
+          this.showMessageDetailSheet = true;
+        })
+
+      if (message.role === MessageRole.ASSISTANT && message.status === SendStatus.FAILED) {
+        Button('Retry')
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+          .backgroundColor(Color.Transparent)
+          .height(28)
+          .onClick((): void => {
+            this.vm.retryLastMessage();
+          })
+      }
+
+      Button('Delete')
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+        .backgroundColor(Color.Transparent)
+        .height(28)
+        .onClick((): void => {
+          this.vm.deleteMessage(message.id);
+        })
+    }
+    .width('100%')
   }
 
   @Builder
@@ -417,7 +473,210 @@ struct Index {
     .backgroundColor($r('app.color.page_background'))
   }
 
+  @Builder
+  private MessageDetailSheetContent() {
+    Column({ space: 16 }) {
+      Text('Message details')
+        .fontSize(20)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .width('100%')
+
+      this.DetailRow('Role', this.getSelectedMessageRole())
+      this.DetailRow('Status', this.getSelectedMessageStatus())
+      this.DetailRow('Model', this.getSelectedMessageModel())
+      this.DetailRow('Finish reason', this.getSelectedMessageFinishReason())
+      this.DetailRow('Response ID', this.getSelectedMessageResponseId())
+      this.DetailRow('Prompt tokens', this.getSelectedMessagePromptTokens())
+      this.DetailRow('Completion tokens', this.getSelectedMessageCompletionTokens())
+      this.DetailRow('Reasoning tokens', this.getSelectedMessageReasoningTokens())
+      this.DetailRow('Total tokens', this.getSelectedMessageTotalTokens())
+      this.DetailRow('Cache hit / miss', this.getSelectedMessageCacheTokens())
+
+      Row({ space: 10 }) {
+        Button('Copy message')
+          .layoutWeight(1)
+          .height(42)
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor(Color.Transparent)
+          .border({ width: 1, color: $r('app.color.divider') })
+          .borderRadius(10)
+          .onClick((): void => {
+            this.copyText(this.getSelectedMessageContent());
+          })
+
+        Button('Copy details')
+          .layoutWeight(1)
+          .height(42)
+          .fontColor($r('app.color.text_on_primary'))
+          .backgroundColor($r('app.color.button_primary'))
+          .borderRadius(10)
+          .onClick((): void => {
+            this.copyText(this.getSelectedMessageDetailsText());
+          })
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 22, bottom: 24 })
+    .backgroundColor($r('app.color.page_background'))
+  }
+
+  @Builder
+  private DetailRow(label: string, value: string) {
+    Row({ space: 12 }) {
+      Text(label)
+        .fontSize(13)
+        .fontColor($r('app.color.text_secondary'))
+        .width(128)
+      Text(value.length > 0 ? value : '-')
+        .fontSize(13)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+  }
+
   private getCurrentTitle(): string {
     return this.vm.getCurrentTitle();
+  }
+
+  private copyText(text: string): void {
+    if (text.length === 0) {
+      this.showToast('Nothing to copy');
+      return;
+    }
+    try {
+      const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text);
+      pasteboard.getSystemPasteboard().setData(data).then((): void => {
+        this.showToast('Copied');
+      }).catch((_err: Error): void => {
+        this.showToast('Copy failed');
+      });
+    } catch (err) {
+      this.showToast('Copy failed');
+    }
+  }
+
+  private showToast(message: string): void {
+    this.getUIContext().getPromptAction().openToast({
+      message: message,
+      duration: 1600
+    }).catch((_err: Error): void => {
+    });
+  }
+
+  private getSelectedMessage(): ChatMessage | null {
+    const messages: ChatMessage[] = this.vm.messages;
+    const selectedMessageId: string = this.selectedMessageId;
+    for (let i = 0; i < messages.length; i++) {
+      if (messages[i].id === selectedMessageId) {
+        return messages[i];
+      }
+    }
+    return null;
+  }
+
+  private getSelectedMessageContent(): string {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null) {
+      return '';
+    }
+    return message.content;
+  }
+
+  private getSelectedMessageRole(): string {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null) {
+      return '';
+    }
+    return message.role;
+  }
+
+  private getSelectedMessageStatus(): string {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null) {
+      return '';
+    }
+    return message.status;
+  }
+
+  private getSelectedMessageModel(): string {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null) {
+      return '';
+    }
+    return message.model;
+  }
+
+  private getSelectedMessageFinishReason(): string {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null) {
+      return '';
+    }
+    return message.finishReason;
+  }
+
+  private getSelectedMessageResponseId(): string {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null) {
+      return '';
+    }
+    return message.responseId;
+  }
+
+  private getSelectedMessagePromptTokens(): string {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null) {
+      return '0';
+    }
+    return `${message.promptTokens}`;
+  }
+
+  private getSelectedMessageCompletionTokens(): string {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null) {
+      return '0';
+    }
+    return `${message.completionTokens}`;
+  }
+
+  private getSelectedMessageReasoningTokens(): string {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null) {
+      return '0';
+    }
+    return `${message.reasoningTokens}`;
+  }
+
+  private getSelectedMessageTotalTokens(): string {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null) {
+      return '0';
+    }
+    return `${message.totalTokens}`;
+  }
+
+  private getSelectedMessageCacheTokens(): string {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null) {
+      return '0 / 0';
+    }
+    return `${message.cacheHitTokens} / ${message.cacheMissTokens}`;
+  }
+
+  private getSelectedMessageDetailsText(): string {
+    return `Role: ${this.getSelectedMessageRole()}\n` +
+      `Status: ${this.getSelectedMessageStatus()}\n` +
+      `Model: ${this.getSelectedMessageModel()}\n` +
+      `Finish reason: ${this.getSelectedMessageFinishReason()}\n` +
+      `Response ID: ${this.getSelectedMessageResponseId()}\n` +
+      `Prompt tokens: ${this.getSelectedMessagePromptTokens()}\n` +
+      `Completion tokens: ${this.getSelectedMessageCompletionTokens()}\n` +
+      `Reasoning tokens: ${this.getSelectedMessageReasoningTokens()}\n` +
+      `Total tokens: ${this.getSelectedMessageTotalTokens()}\n` +
+      `Cache hit / miss: ${this.getSelectedMessageCacheTokens()}`;
   }
 }
