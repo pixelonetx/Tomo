@@ -1,0 +1,20 @@
+{
+  "float": [
+    {
+      "name": "page_text_font_size",
+      "value": "50fp"
+    },
+    {
+      "name": "chat_body_font_size",
+      "value": "15fp"
+    },
+    {
+      "name": "chat_title_font_size",
+      "value": "16fp"
+    },
+    {
+      "name": "chat_caption_font_size",
+      "value": "12fp"
+    }
+  ]
+}

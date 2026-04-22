@@ -1,0 +1,80 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "page_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "input_bar_background",
+      "value": "#F8FFFFFF"
+    },
+    {
+      "name": "text_primary",
+      "value": "#111111"
+    },
+    {
+      "name": "text_secondary",
+      "value": "#737373"
+    },
+    {
+      "name": "text_placeholder",
+      "value": "#A3A3A3"
+    },
+    {
+      "name": "icon_primary",
+      "value": "#111111"
+    },
+    {
+      "name": "icon_secondary",
+      "value": "#737373"
+    },
+    {
+      "name": "divider",
+      "value": "#E5E5E5"
+    },
+    {
+      "name": "button_primary",
+      "value": "#111111"
+    },
+    {
+      "name": "text_on_primary",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "top_bar_background",
+      "value": "#CCFFFFFF"
+    },
+    {
+      "name": "top_bar_gradient_start",
+      "value": "#EAFFFFFF"
+    },
+    {
+      "name": "top_bar_gradient_end",
+      "value": "#08FFFFFF"
+    },
+    {
+      "name": "bottom_bar_gradient_start",
+      "value": "#08FFFFFF"
+    },
+    {
+      "name": "bottom_bar_gradient_end",
+      "value": "#D6FFFFFF"
+    },
+    {
+      "name": "input_border",
+      "value": "#D4D4D4"
+    },
+    {
+      "name": "bubble_user",
+      "value": "#EDEDED"
+    },
+    {
+      "name": "code_block_bg",
+      "value": "#FAFAFA"
+    }
+  ]
+}
