@@ -92,12 +92,15 @@
   - `querySql` 调用显式放入 `try/catch/finally`，确保 `ResultSet` 始终关闭。
   - `goToNextRow`、`getString`、`getLong`、`close` 等可能抛异常点均进入明确异常边界。
   - `assembleHap` 不再输出 `ConversationRdbService` 的 `Function may throw exceptions` 警告。
-- 新增 Markdown / 代码块基础渲染：
-  - 新增轻量 `MarkdownParser`，支持段落、标题、列表、引用、inline code、fenced code block。
-  - Assistant 正文改为 Markdown 全宽排版，用户消息继续保持右侧气泡纯文本。
-  - 代码块使用 `code_block_bg`、等宽字体、横向滚动。
-  - 代码块顶部显示语言和 `Copy` 入口，并复用系统剪贴板复制逻辑。
-  - 新增本地单元测试覆盖 Markdown block 和 inline code 解析。
+- 将 Markdown / 代码块渲染从轻量 demo 升级为本地成熟渲染链路：
+  - 移除自研简易 `MarkdownParser`。
+  - 引入本地 rawfile 运行时资产 `markdown-it@14.1.1` 和 `katex@0.16.45`，并补充 MIT license 文本。
+  - 使用 ArkWeb 本地 `loadData()` 渲染 Assistant 正文，用户消息继续保持右侧气泡纯文本。
+  - Markdown 支持标题、段落、强调、引用、列表、分隔线、表格、自动链接、图片、代码块等 markdown-it 能力。
+  - 数学公式支持 `$...$`、`$$...$$`、`\(...\)`、`\[...\]`，由 KaTeX auto-render 渲染。
+  - 代码块支持语言标签、横向滚动和 Web 内复制按钮。
+  - HTML 拼装禁用 Markdown 原始 HTML，链接统一 `target="_blank"` / `rel="noopener noreferrer"`，脚本数据做 `</script>` 防截断处理。
+  - 新增本地单元测试覆盖 HTML shell、KaTeX/markdown-it 资产引用、任务列表归一化和脚本数据保护。
 
 ### 验证
 
@@ -112,6 +115,6 @@
 
 ### 下一步
 
-1. 补齐 Markdown 链接点击和更完整的列表/分隔线渲染。
+1. 优化 Markdown WebView 高度回传，减少长内容估算误差。
 2. 接入联网搜索 Tool Calls 的受控 `web_search` 循环。
 3. 继续推进 Reasoning 折叠展示和搜索来源详情。

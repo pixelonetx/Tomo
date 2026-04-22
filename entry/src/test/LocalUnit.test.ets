@@ -5,7 +5,7 @@ import { createDefaultSettings } from '../main/ets/models/SettingsModels';
 import { normalizeSearchResults } from '../main/ets/models/SearchModels';
 import { DeepSeekService, parseBalanceResponse, parseModelListResponse } from '../main/ets/services/DeepSeekService';
 import { mapDeepSeekError, parseSseChunk } from '../main/ets/services/DeepSeekSseParser';
-import { MarkdownBlockType, parseInlineMarkdown, parseMarkdown } from '../main/ets/shared/MarkdownParser';
+import { buildMarkdownHtml, estimateMarkdownHeight, normalizeTaskListMarkers, toScriptString } from '../main/ets/shared/MarkdownHtmlRenderer';
 
 export default function localUnitTest() {
   describe('deepSeekClientFoundation', () => {
@@ -116,22 +116,19 @@ export default function localUnitTest() {
       expect(response?.balanceInfos[0].currency).assertEqual('CNY');
     });
 
-    it('parses basic markdown blocks', 0, () => {
-      const blocks = parseMarkdown('# Title\n\n- one\n> note\n```ts\nlet a = 1;\n```');
-      expect(blocks.length).assertEqual(4);
-      expect(blocks[0].type).assertEqual(MarkdownBlockType.HEADING);
-      expect(blocks[0].level).assertEqual(1);
-      expect(blocks[1].type).assertEqual(MarkdownBlockType.LIST_ITEM);
-      expect(blocks[2].type).assertEqual(MarkdownBlockType.QUOTE);
-      expect(blocks[3].type).assertEqual(MarkdownBlockType.CODE_BLOCK);
-      expect(blocks[3].language).assertEqual('ts');
+    it('builds markdown html with local renderer assets and math support', 0, () => {
+      const html = buildMarkdownHtml('# Title\n\n$$E=mc^2$$\n\n```ts\nlet a = 1;\n```', 15);
+      expect(html.indexOf('markdown-it.min.js') >= 0).assertTrue();
+      expect(html.indexOf('katex.min.js') >= 0).assertTrue();
+      expect(html.indexOf('auto-render.min.js') >= 0).assertTrue();
+      expect(html.indexOf('renderMathInElement') >= 0).assertTrue();
+      expect(html.indexOf('copy-code') >= 0).assertTrue();
     });
 
-    it('parses inline code segments', 0, () => {
-      const segments = parseInlineMarkdown('Use `hvigorw` now');
-      expect(segments.length).assertEqual(3);
-      expect(segments[1].text).assertEqual('hvigorw');
-      expect(segments[1].isCode).assertTrue();
+    it('normalizes markdown task list markers and protects script data', 0, () => {
+      expect(normalizeTaskListMarkers('- [x] done\n- [ ] todo')).assertEqual('- ☑ done\n- ☐ todo');
+      expect(toScriptString('</script><p>x</p>').indexOf('<\\/script') >= 0).assertTrue();
+      expect(estimateMarkdownHeight('text\n```ts\ncode\n```', 15) > 40).assertTrue();
     });
   });
 }
