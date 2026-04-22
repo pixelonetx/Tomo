@@ -47,6 +47,16 @@
   - 支持 `/models` 和 `/user/balance` 的文本请求与响应结构解析。
   - 为应用声明 `ohos.permission.INTERNET`。
 - 新增 DeepSeek 请求体、模型列表和余额响应解析测试。
+- 新增 `ChatViewModel`：
+  - 从首页抽离会话、消息、输入、发送、停止、重试和联网开关状态。
+  - 初始化时读取 `PreferencesService` 并应用模型模式、字号、背景和联网搜索默认值。
+  - 发送消息时接入 `DeepSeekService.sendStreamChat()`。
+  - 流式回调增量更新 assistant content、reasoning、metadata 和 usage。
+  - API Key 未配置时保留用户消息，并将 assistant 标记为失败状态。
+  - 重试会删除上一条 assistant 和对应 user 后重新发送，避免重复脏消息。
+- 首页 `Index.ets` 改为展示层，只绑定 `ChatViewModel` 状态并转发交互。
+- `DeepSeekService` 的 HTTP 流式请求改为官方 `requestInStream().then().catch()` 写法，并补齐 `expectDataType`、`usingCache`、`priority`、`usingProtocol` 和完整事件销毁。
+- `PreferencesService` 补充同步 Preferences API 的异常处理，避免 ArkTS 编译警告。
 
 ### 验证
 
@@ -60,6 +70,6 @@
 
 ### 下一步
 
-1. 将首页临时内存会话替换为 `ChatViewModel`，接入 `PreferencesService` 和 `DeepSeekService`。
+1. 实现 API Key 设置页，并说明本地保存边界和风险。
 2. 实现 `ConversationRdbService` 和 `ConversationService`，接入增量保存。
-3. 实现 API Key 设置页，并说明本地保存边界和风险。
+3. 将 `ChatViewModel` 的内存会话替换为服务层持久化会话。

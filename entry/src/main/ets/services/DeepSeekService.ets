@@ -41,10 +41,7 @@ export class DeepSeekService {
 
   cancelRequest(): void {
     if (this.currentRequest !== null) {
-      this.currentRequest.off('dataReceive');
-      this.currentRequest.off('dataEnd');
-      this.currentRequest.destroy();
-      this.currentRequest = null;
+      this.destroyRequest(this.currentRequest);
     }
   }
 
@@ -79,7 +76,7 @@ export class DeepSeekService {
           callback.onComplete(this.latestMetadata, this.latestUsage);
           this.streamCompleted = true;
         }
-        this.cleanupRequest(request);
+        this.destroyRequest(request);
         resolve();
       });
 
@@ -89,21 +86,24 @@ export class DeepSeekService {
           method: http.RequestMethod.POST,
           header: this.buildJsonHeaders(),
           extraData: JSON.stringify(requestBody),
+          expectDataType: http.HttpDataType.STRING,
+          usingCache: false,
+          priority: 1,
           readTimeout: DEEPSEEK_REQUEST_TIMEOUT,
-          connectTimeout: DEEPSEEK_REQUEST_TIMEOUT
-        },
-        (err: BusinessError, responseCode: number) => {
-          if (err) {
-            callback.onError('网络请求失败，请稍后重试。');
-            this.cleanupRequest(request);
-            resolve();
-            return;
-          }
+          connectTimeout: DEEPSEEK_REQUEST_TIMEOUT,
+          usingProtocol: http.HttpProtocol.HTTP1_1
+        }
+      ).then((responseCode: number) => {
           if (responseCode >= 400) {
             callback.onError(mapDeepSeekError(responseCode, 'DeepSeek 请求失败。'));
+            this.destroyRequest(request);
+            resolve();
           }
-        }
-      );
+      }).catch((_err: Error) => {
+        callback.onError('网络请求失败，请稍后重试。');
+        this.destroyRequest(request);
+        resolve();
+      });
     });
   }
 
@@ -237,12 +237,19 @@ export class DeepSeekService {
   }
 
   private cleanupRequest(request: http.HttpRequest): void {
+    this.destroyRequest(request);
+  }
+
+  private destroyRequest(request: http.HttpRequest): void {
+    if (this.currentRequest !== request) {
+      return;
+    }
     request.off('dataReceive');
+    request.off('dataSendProgress');
+    request.off('dataReceiveProgress');
     request.off('dataEnd');
     request.destroy();
-    if (this.currentRequest === request) {
-      this.currentRequest = null;
-    }
+    this.currentRequest = null;
   }
 }
 

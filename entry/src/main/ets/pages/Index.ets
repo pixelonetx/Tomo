@@ -1,26 +1,18 @@
+import { common } from '@kit.AbilityKit';
 import { APP_NAME } from '../shared/Constants';
-import { ChatMessage, Conversation, MessageRole, SendStatus, createConversation, createConversationTitle, createMessage } from '../models/ChatModels';
+import { ChatMessage, Conversation, MessageRole, SendStatus } from '../models/ChatModels';
+import { ChatViewModel } from '../viewmodels/ChatViewModel';
 
 @Entry
 @Component
 struct Index {
-  @State conversations: Conversation[] = [];
-  @State currentConversationId: string = '';
-  @State messages: ChatMessage[] = [];
-  @State inputText: string = '';
-  @State isLoading: boolean = false;
   @State isSidebarOpen: boolean = false;
-  @State webSearchEnabled: boolean = false;
-  @State bgEnabled: boolean = false;
-  @State bgImageUri: string = '';
-  @State bgOpacity: number = 0.3;
+  @State vm: ChatViewModel = new ChatViewModel();
 
   aboutToAppear(): void {
-    if (this.conversations.length === 0) {
-      const conversation: Conversation = createConversation('New chat');
-      this.conversations = [conversation];
-      this.currentConversationId = conversation.id;
-      this.messages = [];
+    const context = this.getUIContext().getHostContext();
+    if (context !== undefined) {
+      this.vm.init(context as common.Context);
     }
   }
 
@@ -41,24 +33,24 @@ struct Index {
 
   @Builder
   private BackgroundLayer() {
-    if (this.bgEnabled && this.bgImageUri.length > 0) {
-      Image(this.bgImageUri)
+    if (this.vm.backgroundEnabled && this.vm.backgroundImageUri.length > 0) {
+      Image(this.vm.backgroundImageUri)
         .width('100%')
         .height('100%')
         .objectFit(ImageFit.Cover)
-        .opacity(this.bgOpacity)
+        .opacity(this.vm.backgroundOpacity)
     }
   }
 
   @Builder
   private ChatLayer() {
     List() {
-      if (this.messages.length === 0) {
+      if (this.vm.messages.length === 0) {
         ListItem() {
           this.EmptyState()
         }
       } else {
-        ForEach(this.messages, (message: ChatMessage) => {
+        ForEach(this.vm.messages, (message: ChatMessage) => {
           ListItem() {
             this.MessageRow(message)
           }
@@ -98,7 +90,7 @@ struct Index {
         Blank()
         Column() {
           Text(message.content)
-            .fontSize(15)
+            .fontSize(this.vm.fontSize)
             .fontColor($r('app.color.text_primary'))
             .lineHeight(22)
         }
@@ -110,17 +102,17 @@ struct Index {
         Column({ space: 8 }) {
           if (message.reasoningContent.length > 0) {
             Text(`Reasoning: ${message.reasoningContent}`)
-              .fontSize(13)
+              .fontSize(Math.max(this.vm.fontSize - 2, 12))
               .fontColor($r('app.color.text_secondary'))
               .lineHeight(19)
           }
           Text(message.content)
-            .fontSize(15)
+            .fontSize(this.vm.fontSize)
             .fontColor($r('app.color.text_primary'))
             .lineHeight(22)
           if (message.status === SendStatus.FAILED && message.errorMessage.length > 0) {
             Text(message.errorMessage)
-              .fontSize(13)
+              .fontSize(Math.max(this.vm.fontSize - 2, 12))
               .fontColor($r('app.color.text_secondary'))
           }
         }
@@ -176,7 +168,7 @@ struct Index {
           .borderRadius(19)
           .height(38)
           .onClick((): void => {
-            this.createNewConversation();
+            this.vm.createNewConversation();
           })
       }
       .width('100%')
@@ -214,7 +206,7 @@ struct Index {
   @Builder
   private ChatInputBar() {
     Row({ space: 8 }) {
-      Button(this.webSearchEnabled ? 'Search On' : 'Search')
+      Button(this.vm.webSearchEnabled ? 'Search On' : 'Search')
         .fontSize(12)
         .fontColor($r('app.color.text_primary'))
         .backgroundColor($r('app.color.page_background'))
@@ -222,33 +214,33 @@ struct Index {
         .borderRadius(19)
         .height(38)
         .onClick((): void => {
-          this.webSearchEnabled = !this.webSearchEnabled;
+          this.vm.toggleWebSearch();
         })
 
       Row({ space: 8 }) {
-        TextArea({ placeholder: 'Ask DeepSeek', text: this.inputText })
+        TextArea({ placeholder: 'Ask DeepSeek', text: this.vm.inputText })
           .placeholderColor($r('app.color.text_placeholder'))
-          .fontSize(15)
+          .fontSize(this.vm.fontSize)
           .fontColor($r('app.color.text_primary'))
           .backgroundColor(Color.Transparent)
           .layoutWeight(1)
           .maxLines(6)
           .constraintSize({ minHeight: 34, maxHeight: 132 })
           .onChange((value: string): void => {
-            this.inputText = value;
+            this.vm.inputText = value;
           })
 
-        Button(this.isLoading ? 'Stop' : 'Send')
+        Button(this.vm.isLoading ? 'Stop' : 'Send')
           .fontSize(13)
           .fontColor($r('app.color.text_on_primary'))
           .backgroundColor($r('app.color.button_primary'))
           .borderRadius(18)
           .height(36)
           .onClick((): void => {
-            if (this.isLoading) {
-              this.stopGenerating();
+            if (this.vm.isLoading) {
+              this.vm.stopGenerating();
             } else {
-              this.sendMessage();
+              this.vm.sendMessage();
             }
           })
       }
@@ -280,12 +272,12 @@ struct Index {
           .backgroundColor($r('app.color.button_primary'))
           .borderRadius(8)
           .onClick((): void => {
-            this.createNewConversation();
+            this.vm.createNewConversation();
             this.isSidebarOpen = false;
           })
 
         List() {
-          ForEach(this.conversations, (conversation: Conversation) => {
+          ForEach(this.vm.conversations, (conversation: Conversation) => {
             ListItem() {
               Text(conversation.title)
                 .fontSize(15)
@@ -294,10 +286,10 @@ struct Index {
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
                 .width('100%')
                 .padding({ left: 10, right: 10, top: 10, bottom: 10 })
-                .backgroundColor(conversation.id === this.currentConversationId ? $r('app.color.bubble_user') : Color.Transparent)
+                .backgroundColor(conversation.id === this.vm.currentConversationId ? $r('app.color.bubble_user') : Color.Transparent)
                 .borderRadius(8)
                 .onClick((): void => {
-                  this.switchConversation(conversation.id);
+                  this.vm.switchConversation(conversation.id);
                   this.isSidebarOpen = false;
                 })
             }
@@ -332,93 +324,7 @@ struct Index {
     .zIndex(4)
   }
 
-  private sendMessage(): void {
-    const content: string = this.inputText.trim();
-    if (content.length === 0 || this.isLoading) {
-      return;
-    }
-
-    const conversationId: string = this.ensureConversation();
-    const userMessage: ChatMessage = createMessage(conversationId, MessageRole.USER, content);
-    userMessage.status = SendStatus.SUCCESS;
-
-    const assistantMessage: ChatMessage = createMessage(conversationId, MessageRole.ASSISTANT, 'API Key settings and streaming service are the next implementation step.');
-    assistantMessage.status = SendStatus.SUCCESS;
-
-    this.messages = this.messages.concat([userMessage, assistantMessage]);
-    this.inputText = '';
-    this.updateCurrentConversation(content);
-  }
-
-  private stopGenerating(): void {
-    this.isLoading = false;
-    const updated: ChatMessage[] = this.messages.slice();
-    for (let i = updated.length - 1; i >= 0; i--) {
-      if (updated[i].role === MessageRole.ASSISTANT && updated[i].status === SendStatus.SENDING) {
-        updated[i].status = SendStatus.CANCELED;
-        updated[i].updatedAt = Date.now();
-        break;
-      }
-    }
-    this.messages = updated;
-  }
-
-  private createNewConversation(): void {
-    const conversation: Conversation = createConversation('New chat');
-    this.conversations = [conversation].concat(this.conversations);
-    this.currentConversationId = conversation.id;
-    this.messages = [];
-  }
-
-  private switchConversation(id: string): void {
-    const conversation: Conversation | null = this.findConversation(id);
-    if (conversation === null) {
-      return;
-    }
-    this.currentConversationId = conversation.id;
-    this.messages = conversation.messages;
-  }
-
-  private updateCurrentConversation(firstMessage: string): void {
-    const updated: Conversation[] = this.conversations.slice();
-    for (let i = 0; i < updated.length; i++) {
-      if (updated[i].id === this.currentConversationId) {
-        if (updated[i].messages.length === 0) {
-          updated[i].title = createConversationTitle(firstMessage);
-        }
-        updated[i].messages = this.messages;
-        updated[i].updatedAt = Date.now();
-        break;
-      }
-    }
-    this.conversations = updated;
-  }
-
-  private ensureConversation(): string {
-    if (this.currentConversationId.length > 0 && this.findConversation(this.currentConversationId) !== null) {
-      return this.currentConversationId;
-    }
-    const conversation: Conversation = createConversation('New chat');
-    this.conversations = [conversation].concat(this.conversations);
-    this.currentConversationId = conversation.id;
-    this.messages = [];
-    return conversation.id;
-  }
-
-  private findConversation(id: string): Conversation | null {
-    for (let i = 0; i < this.conversations.length; i++) {
-      if (this.conversations[i].id === id) {
-        return this.conversations[i];
-      }
-    }
-    return null;
-  }
-
   private getCurrentTitle(): string {
-    const conversation: Conversation | null = this.findConversation(this.currentConversationId);
-    if (conversation === null) {
-      return 'New chat';
-    }
-    return conversation.title;
+    return this.vm.getCurrentTitle();
   }
 }

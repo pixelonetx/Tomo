@@ -28,7 +28,11 @@ export class PreferencesService {
     if (this.store !== null) {
       return;
     }
-    this.store = preferences.getPreferencesSync(context, { name: PREFERENCES_NAME });
+    try {
+      this.store = preferences.getPreferencesSync(context, { name: PREFERENCES_NAME });
+    } catch (err) {
+      this.store = null;
+    }
   }
 
   loadSettings(): AppSettings {
@@ -52,18 +56,22 @@ export class PreferencesService {
 
   async saveSettings(settings: AppSettings): Promise<void> {
     const store = this.requireStore();
-    store.putSync(PreferenceKey.API_KEY_CONFIGURED, settings.apiKeyConfigured);
-    store.putSync(PreferenceKey.MODEL_MODE, settings.modelMode);
-    store.putSync(PreferenceKey.THEME_MODE, settings.themeMode);
-    store.putSync(PreferenceKey.FONT_SIZE, settings.fontSize);
-    store.putSync(PreferenceKey.BACKGROUND_ENABLED, settings.backgroundEnabled);
-    store.putSync(PreferenceKey.BACKGROUND_IMAGE_URI, settings.backgroundImageUri);
-    store.putSync(PreferenceKey.BACKGROUND_BLUR_RADIUS, settings.backgroundBlurRadius);
-    store.putSync(PreferenceKey.BACKGROUND_OPACITY, settings.backgroundOpacity);
-    store.putSync(PreferenceKey.WEB_SEARCH_DEFAULT_ENABLED, settings.webSearchDefaultEnabled);
-    store.putSync(PreferenceKey.SEARCH_PROVIDER, settings.searchProvider);
-    store.putSync(PreferenceKey.SEARCH_API_KEY_CONFIGURED, settings.searchApiKeyConfigured);
-    store.putSync(PreferenceKey.SEARCH_MAX_RESULTS, this.clampSearchMaxResults(settings.searchMaxResults));
+    try {
+      store.putSync(PreferenceKey.API_KEY_CONFIGURED, settings.apiKeyConfigured);
+      store.putSync(PreferenceKey.MODEL_MODE, settings.modelMode);
+      store.putSync(PreferenceKey.THEME_MODE, settings.themeMode);
+      store.putSync(PreferenceKey.FONT_SIZE, settings.fontSize);
+      store.putSync(PreferenceKey.BACKGROUND_ENABLED, settings.backgroundEnabled);
+      store.putSync(PreferenceKey.BACKGROUND_IMAGE_URI, settings.backgroundImageUri);
+      store.putSync(PreferenceKey.BACKGROUND_BLUR_RADIUS, settings.backgroundBlurRadius);
+      store.putSync(PreferenceKey.BACKGROUND_OPACITY, settings.backgroundOpacity);
+      store.putSync(PreferenceKey.WEB_SEARCH_DEFAULT_ENABLED, settings.webSearchDefaultEnabled);
+      store.putSync(PreferenceKey.SEARCH_PROVIDER, settings.searchProvider);
+      store.putSync(PreferenceKey.SEARCH_API_KEY_CONFIGURED, settings.searchApiKeyConfigured);
+      store.putSync(PreferenceKey.SEARCH_MAX_RESULTS, this.clampSearchMaxResults(settings.searchMaxResults));
+    } catch (err) {
+      throw new Error('Failed to write preferences.');
+    }
     await this.flushStore(store);
   }
 
@@ -75,25 +83,41 @@ export class PreferencesService {
 
   async setApiKeyConfigured(configured: boolean): Promise<void> {
     const store = this.requireStore();
-    store.putSync(PreferenceKey.API_KEY_CONFIGURED, configured);
+    try {
+      store.putSync(PreferenceKey.API_KEY_CONFIGURED, configured);
+    } catch (err) {
+      throw new Error('Failed to write api key status.');
+    }
     await this.flushStore(store);
   }
 
   async setSearchApiKeyConfigured(configured: boolean): Promise<void> {
     const store = this.requireStore();
-    store.putSync(PreferenceKey.SEARCH_API_KEY_CONFIGURED, configured);
+    try {
+      store.putSync(PreferenceKey.SEARCH_API_KEY_CONFIGURED, configured);
+    } catch (err) {
+      throw new Error('Failed to write search api key status.');
+    }
     await this.flushStore(store);
   }
 
   async setModelMode(mode: ModelMode): Promise<void> {
     const store = this.requireStore();
-    store.putSync(PreferenceKey.MODEL_MODE, mode);
+    try {
+      store.putSync(PreferenceKey.MODEL_MODE, mode);
+    } catch (err) {
+      throw new Error('Failed to write model mode.');
+    }
     await this.flushStore(store);
   }
 
   async setThemeMode(mode: ThemeMode): Promise<void> {
     const store = this.requireStore();
-    store.putSync(PreferenceKey.THEME_MODE, mode);
+    try {
+      store.putSync(PreferenceKey.THEME_MODE, mode);
+    } catch (err) {
+      throw new Error('Failed to write theme mode.');
+    }
     await this.flushStore(store);
   }
 
@@ -117,25 +141,37 @@ export class PreferencesService {
   }
 
   private getString(store: preferences.Preferences, key: PreferenceKey, defaultValue: string): string {
-    const value = store.getSync(key, defaultValue);
-    if (typeof value === 'string') {
-      return value;
+    try {
+      const value = store.getSync(key, defaultValue);
+      if (typeof value === 'string') {
+        return value;
+      }
+    } catch (err) {
+      return defaultValue;
     }
     return defaultValue;
   }
 
   private getNumber(store: preferences.Preferences, key: PreferenceKey, defaultValue: number): number {
-    const value = store.getSync(key, defaultValue);
-    if (typeof value === 'number') {
-      return value;
+    try {
+      const value = store.getSync(key, defaultValue);
+      if (typeof value === 'number') {
+        return value;
+      }
+    } catch (err) {
+      return defaultValue;
     }
     return defaultValue;
   }
 
   private getBoolean(store: preferences.Preferences, key: PreferenceKey, defaultValue: boolean): boolean {
-    const value = store.getSync(key, defaultValue);
-    if (typeof value === 'boolean') {
-      return value;
+    try {
+      const value = store.getSync(key, defaultValue);
+      if (typeof value === 'boolean') {
+        return value;
+      }
+    } catch (err) {
+      return defaultValue;
     }
     return defaultValue;
   }
