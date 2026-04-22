@@ -101,6 +101,12 @@
   - 代码块支持语言标签、横向滚动和 Web 内复制按钮。
   - HTML 拼装禁用 Markdown 原始 HTML，链接统一 `target="_blank"` / `rel="noopener noreferrer"`，脚本数据做 `</script>` 防截断处理。
   - 新增本地单元测试覆盖 HTML shell、KaTeX/markdown-it 资产引用、任务列表归一化和脚本数据保护。
+- 新增关于与开源声明入口：
+  - 侧边栏新增 `About & licenses`。
+  - 关于 sheet 展示应用说明和第三方运行时资产清单。
+  - 声明 `markdown-it@14.1.1` / `KaTeX@0.16.45` 的用途、版本、许可证和官网。
+  - 展示本地 license 文件位置。
+  - 支持复制完整 open source notices。
 
 ### 验证
 

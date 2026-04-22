@@ -11,6 +11,7 @@ struct Index {
   @State isSidebarOpen: boolean = false;
   @State showApiKeySheet: boolean = false;
   @State showMessageDetailSheet: boolean = false;
+  @State showAboutSheet: boolean = false;
   @State selectedMessageId: string = '';
   @State vm: ChatViewModel = new ChatViewModel();
 
@@ -48,6 +49,14 @@ struct Index {
       dragBar: true,
       onDisappear: (): void => {
         this.showMessageDetailSheet = false;
+      }
+    })
+    .bindSheet(this.showAboutSheet, this.AboutSheetContent(), {
+      height: SheetSize.FIT_CONTENT,
+      showClose: true,
+      dragBar: true,
+      onDisappear: (): void => {
+        this.showAboutSheet = false;
       }
     })
   }
@@ -375,6 +384,18 @@ struct Index {
             this.showApiKeySheet = true;
             this.isSidebarOpen = false;
           })
+
+        Button('About & licenses')
+          .width('100%')
+          .height(40)
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor(Color.Transparent)
+          .border({ width: 1, color: $r('app.color.divider') })
+          .borderRadius(8)
+          .onClick((): void => {
+            this.showAboutSheet = true;
+            this.isSidebarOpen = false;
+          })
       }
       .width(300)
       .height('100%')
@@ -472,6 +493,97 @@ struct Index {
     .width('100%')
     .padding({ left: 20, right: 20, top: 22, bottom: 24 })
     .backgroundColor($r('app.color.page_background'))
+  }
+
+  @Builder
+  private AboutSheetContent() {
+    Column({ space: 18 }) {
+      Column({ space: 6 }) {
+        Text(APP_NAME)
+          .fontSize(20)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .width('100%')
+
+        Text('A local HarmonyOS DeepSeek chat client. Third-party notices for bundled runtime assets are listed below.')
+          .fontSize(13)
+          .fontColor($r('app.color.text_secondary'))
+          .lineHeight(19)
+          .width('100%')
+      }
+      .width('100%')
+
+      Column({ space: 12 }) {
+        this.OpenSourceLibraryBlock(
+          'markdown-it',
+          '14.1.1',
+          'MIT',
+          'CommonMark-compatible Markdown rendering, tables, links, emphasis, lists and fenced code blocks.',
+          'https://github.com/markdown-it/markdown-it'
+        )
+        this.OpenSourceLibraryBlock(
+          'KaTeX',
+          '0.16.45',
+          'MIT',
+          'TeX math rendering for inline and display formulas inside assistant messages.',
+          'https://katex.org/'
+        )
+      }
+      .width('100%')
+
+      Text('Bundled files are stored under resources/rawfile/markdown. Full license texts are included as LICENSE-markdown-it.txt and LICENSE-katex.txt.')
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+        .lineHeight(18)
+        .width('100%')
+
+      Button('Copy notices')
+        .width('100%')
+        .height(42)
+        .fontColor($r('app.color.text_on_primary'))
+        .backgroundColor($r('app.color.button_primary'))
+        .borderRadius(10)
+        .onClick((): void => {
+          this.copyText(this.getOpenSourceNoticesText());
+        })
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 22, bottom: 24 })
+    .backgroundColor($r('app.color.page_background'))
+  }
+
+  @Builder
+  private OpenSourceLibraryBlock(name: string, version: string, license: string, usage: string, website: string) {
+    Column({ space: 6 }) {
+      Row() {
+        Text(`${name} ${version}`)
+          .fontSize(15)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+        Text(license)
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+      }
+      .width('100%')
+
+      Text(usage)
+        .fontSize(13)
+        .fontColor($r('app.color.text_secondary'))
+        .lineHeight(19)
+        .width('100%')
+
+      Text(website)
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+    }
+    .width('100%')
+    .padding(12)
+    .border({ width: 1, color: $r('app.color.divider') })
+    .borderRadius(8)
   }
 
   @Builder
@@ -679,5 +791,20 @@ struct Index {
       `Reasoning tokens: ${this.getSelectedMessageReasoningTokens()}\n` +
       `Total tokens: ${this.getSelectedMessageTotalTokens()}\n` +
       `Cache hit / miss: ${this.getSelectedMessageCacheTokens()}`;
+  }
+
+  private getOpenSourceNoticesText(): string {
+    return `${APP_NAME} open source notices\n\n` +
+      'markdown-it 14.1.1\n' +
+      'License: MIT\n' +
+      'Website: https://github.com/markdown-it/markdown-it\n' +
+      'Usage: CommonMark-compatible Markdown rendering, tables, links, emphasis, lists and fenced code blocks.\n\n' +
+      'KaTeX 0.16.45\n' +
+      'License: MIT\n' +
+      'Website: https://katex.org/\n' +
+      'Usage: TeX math rendering for inline and display formulas inside assistant messages.\n\n' +
+      'Bundled license files:\n' +
+      'resources/rawfile/markdown/LICENSE-markdown-it.txt\n' +
+      'resources/rawfile/markdown/LICENSE-katex.txt';
   }
 }
