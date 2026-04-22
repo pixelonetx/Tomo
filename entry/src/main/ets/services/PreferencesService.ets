@@ -5,6 +5,7 @@ import { ModelMode } from '../models/ApiModels';
 import { AppSettings, ThemeMode, createDefaultSettings } from '../models/SettingsModels';
 
 export enum PreferenceKey {
+  API_KEY = 'apiKey',
   API_KEY_CONFIGURED = 'apiKeyConfigured',
   MODEL_MODE = 'modelMode',
   THEME_MODE = 'themeMode',
@@ -87,6 +88,34 @@ export class PreferencesService {
       store.putSync(PreferenceKey.API_KEY_CONFIGURED, configured);
     } catch (err) {
       throw new Error('Failed to write api key status.');
+    }
+    await this.flushStore(store);
+  }
+
+  getApiKey(): string {
+    const store = this.requireStore();
+    return this.getString(store, PreferenceKey.API_KEY, '');
+  }
+
+  async saveApiKey(key: string): Promise<void> {
+    const store = this.requireStore();
+    const cleanKey: string = key.trim();
+    try {
+      store.putSync(PreferenceKey.API_KEY, cleanKey);
+      store.putSync(PreferenceKey.API_KEY_CONFIGURED, cleanKey.length > 0);
+    } catch (err) {
+      throw new Error('Failed to write api key.');
+    }
+    await this.flushStore(store);
+  }
+
+  async clearApiKey(): Promise<void> {
+    const store = this.requireStore();
+    try {
+      store.deleteSync(PreferenceKey.API_KEY);
+      store.putSync(PreferenceKey.API_KEY_CONFIGURED, false);
+    } catch (err) {
+      throw new Error('Failed to clear api key.');
     }
     await this.flushStore(store);
   }

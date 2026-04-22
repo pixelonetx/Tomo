@@ -1,5 +1,5 @@
 import { common } from '@kit.AbilityKit';
-import { ApiMessage, ModelMode, ResponseMetadata, UsageInfo } from '../models/ApiModels';
+import { ApiMessage, ModelInfo, ModelListResponse, ModelMode, ResponseMetadata, UsageInfo } from '../models/ApiModels';
 import {
   ChatMessage,
   Conversation,
@@ -28,6 +28,9 @@ export class ChatViewModel {
   backgroundImageUri: string = '';
   backgroundOpacity: number = 0.3;
   backgroundBlurRadius: number = 20;
+  apiKeyConfigured: boolean = false;
+  apiKeyDraft: string = '';
+  settingsMessage: string = '';
 
   private initialized: boolean = false;
   private settings: AppSettings = createDefaultSettings();
@@ -45,12 +48,58 @@ export class ChatViewModel {
       this.settings = createDefaultSettings();
     }
     this.applySettings(this.settings);
+    this.restoreApiKey();
     this.createNewConversation();
     this.initialized = true;
   }
 
   setApiKey(key: string): void {
     this.deepSeekService.setApiKey(key);
+    this.apiKeyDraft = key;
+    this.apiKeyConfigured = key.trim().length > 0;
+  }
+
+  async saveApiKey(key: string): Promise<void> {
+    const cleanKey: string = key.trim();
+    this.setApiKey(cleanKey);
+    try {
+      await this.preferencesService.saveApiKey(cleanKey);
+      this.settings.apiKeyConfigured = cleanKey.length > 0;
+      this.settingsMessage = cleanKey.length > 0 ? 'API Key saved.' : 'API Key cleared.';
+    } catch (err) {
+      this.settingsMessage = 'API Key 保存失败，请稍后重试。';
+    }
+  }
+
+  async clearApiKey(): Promise<void> {
+    this.setApiKey('');
+    try {
+      await this.preferencesService.clearApiKey();
+      this.settings.apiKeyConfigured = false;
+      this.settingsMessage = 'API Key cleared.';
+    } catch (err) {
+      this.settingsMessage = 'API Key 清除失败，请稍后重试。';
+    }
+  }
+
+  async checkApiKey(): Promise<void> {
+    const cleanKey: string = this.apiKeyDraft.trim();
+    if (cleanKey.length === 0) {
+      this.settingsMessage = '请输入 API Key 后再检查。';
+      return;
+    }
+    this.setApiKey(cleanKey);
+    this.settingsMessage = 'Checking DeepSeek models...';
+    const models: ModelListResponse | null = await this.deepSeekService.fetchModels();
+    if (models === null) {
+      this.settingsMessage = '检查失败，请确认 API Key 和网络。';
+      return;
+    }
+    if (this.hasModel(models, 'deepseek-chat') && this.hasModel(models, 'deepseek-reasoner')) {
+      this.settingsMessage = 'Connected. Chat and Reasoner are available.';
+      return;
+    }
+    this.settingsMessage = 'Connected, but required models were not both found.';
   }
 
   createNewConversation(): void {
@@ -217,6 +266,27 @@ export class ChatViewModel {
     this.backgroundImageUri = settings.backgroundImageUri;
     this.backgroundOpacity = settings.backgroundOpacity;
     this.backgroundBlurRadius = settings.backgroundBlurRadius;
+    this.apiKeyConfigured = settings.apiKeyConfigured;
+  }
+
+  private restoreApiKey(): void {
+    try {
+      const apiKey: string = this.preferencesService.getApiKey();
+      this.setApiKey(apiKey);
+      this.apiKeyConfigured = apiKey.length > 0;
+    } catch (err) {
+      this.setApiKey('');
+    }
+  }
+
+  private hasModel(models: ModelListResponse, id: string): boolean {
+    for (let i = 0; i < models.data.length; i++) {
+      const model: ModelInfo = models.data[i];
+      if (model.id === id) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private ensureConversation(): string {

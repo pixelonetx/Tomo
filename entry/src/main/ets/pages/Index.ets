@@ -7,6 +7,7 @@ import { ChatViewModel } from '../viewmodels/ChatViewModel';
 @Component
 struct Index {
   @State isSidebarOpen: boolean = false;
+  @State showApiKeySheet: boolean = false;
   @State vm: ChatViewModel = new ChatViewModel();
 
   aboutToAppear(): void {
@@ -29,6 +30,14 @@ struct Index {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.page_background'))
+    .bindSheet(this.showApiKeySheet, this.ApiKeySheetContent(), {
+      height: SheetSize.FIT_CONTENT,
+      showClose: true,
+      dragBar: true,
+      onDisappear: (): void => {
+        this.showApiKeySheet = false;
+      }
+    })
   }
 
   @Builder
@@ -298,13 +307,17 @@ struct Index {
         .layoutWeight(1)
         .scrollBar(BarState.Off)
 
-        Button('Settings')
+        Button(this.vm.apiKeyConfigured ? 'API Key configured' : 'Set API Key')
           .width('100%')
           .height(40)
           .fontColor($r('app.color.text_primary'))
           .backgroundColor(Color.Transparent)
           .border({ width: 1, color: $r('app.color.divider') })
           .borderRadius(8)
+          .onClick((): void => {
+            this.showApiKeySheet = true;
+            this.isSidebarOpen = false;
+          })
       }
       .width(300)
       .height('100%')
@@ -322,6 +335,86 @@ struct Index {
     .width('100%')
     .height('100%')
     .zIndex(4)
+  }
+
+  @Builder
+  private ApiKeySheetContent() {
+    Column({ space: 18 }) {
+      Column({ space: 6 }) {
+        Text('DeepSeek API Key')
+          .fontSize(20)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .width('100%')
+
+        Text('Saved locally in this app sandbox via Preferences for the first version. Move to system secure storage is planned before broader release.')
+          .fontSize(13)
+          .fontColor($r('app.color.text_secondary'))
+          .lineHeight(19)
+          .width('100%')
+      }
+      .width('100%')
+
+      TextInput({ placeholder: 'sk-...', text: this.vm.apiKeyDraft })
+        .type(InputType.Password)
+        .fontSize(15)
+        .fontColor($r('app.color.text_primary'))
+        .placeholderColor($r('app.color.text_placeholder'))
+        .backgroundColor($r('app.color.input_bar_background'))
+        .border({ width: 1, color: $r('app.color.input_border') })
+        .borderRadius(10)
+        .height(46)
+        .padding({ left: 12, right: 12 })
+        .onChange((value: string): void => {
+          this.vm.apiKeyDraft = value;
+        })
+
+      if (this.vm.settingsMessage.length > 0) {
+        Text(this.vm.settingsMessage)
+          .fontSize(13)
+          .fontColor($r('app.color.text_secondary'))
+          .width('100%')
+      }
+
+      Row({ space: 10 }) {
+        Button('Clear')
+          .layoutWeight(1)
+          .height(42)
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor(Color.Transparent)
+          .border({ width: 1, color: $r('app.color.divider') })
+          .borderRadius(10)
+          .onClick((): void => {
+            this.vm.clearApiKey();
+          })
+
+        Button('Check')
+          .layoutWeight(1)
+          .height(42)
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor(Color.Transparent)
+          .border({ width: 1, color: $r('app.color.divider') })
+          .borderRadius(10)
+          .onClick((): void => {
+            this.vm.checkApiKey();
+          })
+
+        Button('Save')
+          .layoutWeight(1)
+          .height(42)
+          .fontColor($r('app.color.text_on_primary'))
+          .backgroundColor($r('app.color.button_primary'))
+          .borderRadius(10)
+          .onClick((): void => {
+            this.vm.saveApiKey(this.vm.apiKeyDraft);
+            this.showApiKeySheet = false;
+          })
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 22, bottom: 24 })
+    .backgroundColor($r('app.color.page_background'))
   }
 
   private getCurrentTitle(): string {

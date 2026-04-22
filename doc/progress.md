@@ -57,6 +57,13 @@
 - 首页 `Index.ets` 改为展示层，只绑定 `ChatViewModel` 状态并转发交互。
 - `DeepSeekService` 的 HTTP 流式请求改为官方 `requestInStream().then().catch()` 写法，并补齐 `expectDataType`、`usingCache`、`priority`、`usingProtocol` 和完整事件销毁。
 - `PreferencesService` 补充同步 Preferences API 的异常处理，避免 ArkTS 编译警告。
+- 新增 API Key 设置 sheet：
+  - 侧边栏入口显示 API Key 配置状态。
+  - 支持输入、保存和清除 DeepSeek API Key。
+  - 保存后注入 `ChatViewModel.setApiKey()`，聊天发送可直接使用真实流式请求。
+  - 支持通过 `/models` 检查 API Key 连通性，并确认 `deepseek-chat` / `deepseek-reasoner` 可用。
+  - 页面明确提示第一版 API Key 保存在应用沙箱 Preferences，后续迁移系统安全存储。
+- `PreferencesService` 临时支持保存、读取和清除 API Key，并同步维护 `apiKeyConfigured`。
 
 ### 验证
 
@@ -70,6 +77,6 @@
 
 ### 下一步
 
-1. 实现 API Key 设置页，并说明本地保存边界和风险。
-2. 实现 `ConversationRdbService` 和 `ConversationService`，接入增量保存。
-3. 将 `ChatViewModel` 的内存会话替换为服务层持久化会话。
+1. 实现 `ConversationRdbService` 和 `ConversationService`，接入增量保存。
+2. 将 `ChatViewModel` 的内存会话替换为服务层持久化会话。
+3. 实现消息详情和复制入口，展示模型、finish reason 和 usage。
