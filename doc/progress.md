@@ -38,6 +38,15 @@
   - 写入后统一 `flush`。
   - 将搜索结果数量限制在 1 到 5。
 - 新增默认设置测试，覆盖模型、字号、背景、联网搜索默认值。
+- 新增 `DeepSeekService`：
+  - 支持设置 API Key。
+  - 支持取消当前流式请求并释放 `HttpRequest`。
+  - 使用 `requestInStream` 接入 `/chat/completions`。
+  - 请求体按 Chat / Reasoner 分支构造，Reasoner 历史默认移除 `reasoning_content`。
+  - 流式数据进入 SSE 解析器并回调 content、reasoning、metadata 和 usage。
+  - 支持 `/models` 和 `/user/balance` 的文本请求与响应结构解析。
+  - 为应用声明 `ohos.permission.INTERNET`。
+- 新增 DeepSeek 请求体、模型列表和余额响应解析测试。
 
 ### 验证
 
@@ -51,6 +60,6 @@
 
 ### 下一步
 
-1. 实现 `DeepSeekService` 的真实 `requestInStream` 流式请求、取消生成、模型列表和余额查询。
-2. 将首页临时内存会话替换为 `ChatViewModel`，为后续 RDB 持久化做清晰边界。
-3. 实现 `ConversationRdbService` 和 `ConversationService`，接入增量保存。
+1. 将首页临时内存会话替换为 `ChatViewModel`，接入 `PreferencesService` 和 `DeepSeekService`。
+2. 实现 `ConversationRdbService` 和 `ConversationService`，接入增量保存。
+3. 实现 API Key 设置页，并说明本地保存边界和风险。

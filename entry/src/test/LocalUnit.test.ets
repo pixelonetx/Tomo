@@ -1,8 +1,9 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
-import { ModelMode, getDeepSeekModelId } from '../main/ets/models/ApiModels';
+import { ApiMessage, ModelMode, getDeepSeekModelId } from '../main/ets/models/ApiModels';
 import { MessageRole, createConversationTitle, createMessage } from '../main/ets/models/ChatModels';
 import { createDefaultSettings } from '../main/ets/models/SettingsModels';
 import { normalizeSearchResults } from '../main/ets/models/SearchModels';
+import { DeepSeekService, parseBalanceResponse, parseModelListResponse } from '../main/ets/services/DeepSeekService';
 import { mapDeepSeekError, parseSseChunk } from '../main/ets/services/DeepSeekSseParser';
 
 export default function localUnitTest() {
@@ -19,6 +20,18 @@ export default function localUnitTest() {
     it('maps model modes to DeepSeek model ids', 0, () => {
       expect(getDeepSeekModelId(ModelMode.CHAT)).assertEqual('deepseek-chat');
       expect(getDeepSeekModelId(ModelMode.REASONER)).assertEqual('deepseek-reasoner');
+    });
+
+    it('builds chat and reasoner request bodies', 0, () => {
+      const service = new DeepSeekService();
+      const messages: ApiMessage[] = [{ role: 'assistant', content: 'done', reasoningContent: 'hidden' }];
+      const chatBody = service.buildRequestBody(messages, ModelMode.CHAT);
+      const reasonerBody = service.buildRequestBody(messages, ModelMode.REASONER);
+      expect(chatBody.model).assertEqual('deepseek-chat');
+      expect(chatBody.temperature).assertEqual(1.0);
+      expect(chatBody.messages[0].reasoning_content).assertEqual('hidden');
+      expect(reasonerBody.model).assertEqual('deepseek-reasoner');
+      expect(reasonerBody.messages[0].reasoning_content).assertUndefined();
     });
 
     it('creates bounded conversation titles', 0, () => {
@@ -86,6 +99,20 @@ export default function localUnitTest() {
       expect(mapDeepSeekError(429, '')).assertEqual('请求过于频繁，请稍后重试。');
       expect(mapDeepSeekError(503, '')).assertEqual('DeepSeek 服务异常，请稍后重试。');
       expect(mapDeepSeekError(400, 'bad request')).assertEqual('bad request');
+    });
+
+    it('parses model list response', 0, () => {
+      const response = parseModelListResponse('{"object":"list","data":[{"id":"deepseek-chat","object":"model","owned_by":"deepseek"},{"id":"deepseek-reasoner","object":"model","owned_by":"deepseek"}]}');
+      expect(response?.object).assertEqual('list');
+      expect(response?.data.length).assertEqual(2);
+      expect(response?.data[1].id).assertEqual('deepseek-reasoner');
+    });
+
+    it('parses balance response shape', 0, () => {
+      const response = parseBalanceResponse('{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"1.00","granted_balance":"0.00","topped_up_balance":"1.00"}]}');
+      expect(response?.isAvailable).assertTrue();
+      expect(response?.balanceInfos.length).assertEqual(1);
+      expect(response?.balanceInfos[0].currency).assertEqual('CNY');
     });
   });
 }

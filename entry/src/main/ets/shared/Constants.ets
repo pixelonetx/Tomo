@@ -1,4 +1,11 @@
 export const APP_NAME: string = 'DeepSeek Chat';
+export const DEEPSEEK_BASE_URL: string = 'https://api.deepseek.com';
+export const DEEPSEEK_CHAT_ENDPOINT: string = '/chat/completions';
+export const DEEPSEEK_MODELS_ENDPOINT: string = '/models';
+export const DEEPSEEK_BALANCE_ENDPOINT: string = '/user/balance';
+export const CHAT_DEFAULT_MAX_TOKENS: number = 4096;
+export const REASONER_DEFAULT_MAX_TOKENS: number = 8192;
+export const DEEPSEEK_REQUEST_TIMEOUT: number = 60000;
 export const MAX_RECENT_MESSAGES: number = 24;
 export const MAX_MESSAGE_CHARS: number = 12000;
 export const MAX_SEARCH_RESULTS_PER_CALL: number = 5;

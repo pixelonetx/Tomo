@@ -11,6 +11,27 @@ export interface ApiMessage {
   toolCallsJson?: string;
 }
 
+export interface ApiRequestMessage {
+  role: string;
+  content: string;
+  reasoning_content?: string;
+  tool_call_id?: string;
+  tool_calls?: Object[];
+}
+
+export interface ChatCompletionRequest {
+  model: string;
+  messages: ApiRequestMessage[];
+  stream: boolean;
+  stream_options?: StreamOptions;
+  temperature?: number;
+  max_tokens: number;
+}
+
+export interface StreamOptions {
+  include_usage: boolean;
+}
+
 export interface UsageInfo {
   promptTokens: number;
   completionTokens: number;
@@ -49,6 +70,13 @@ export interface BalanceInfo {
 export interface BalanceResponse {
   isAvailable: boolean;
   balanceInfos: BalanceInfo[];
+}
+
+export interface ChatCompletionResponse {
+  content: string;
+  reasoningContent: string;
+  metadata: ResponseMetadata;
+  usage: UsageInfo;
 }
 
 export interface StreamCallback {
