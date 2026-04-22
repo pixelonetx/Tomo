@@ -130,7 +130,13 @@ function buildRendererScript(source: string): string {
     'return md;}' +
     'function copyText(text,button){function done(ok){button.textContent=ok?"Copied":"Copy";setTimeout(function(){button.textContent="Copy";},1200);} if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){done(true);}).catch(function(){fallback();});}else{fallback();} function fallback(){var area=document.createElement("textarea");area.value=text;area.setAttribute("readonly","");area.style.position="fixed";area.style.opacity="0";document.body.appendChild(area);area.select();var ok=false;try{ok=document.execCommand("copy");}catch(e){}document.body.removeChild(area);done(ok);}}' +
     'function render(){var root=document.getElementById("content");var md=initMarkdown();root.innerHTML=md.render(source);if(window.renderMathInElement){window.renderMathInElement(root,{delimiters:[{left:"$$",right:"$$",display:true},{left:"\\\\[",right:"\\\\]",display:true},{left:"\\\\(",right:"\\\\)",display:false},{left:"$",right:"$",display:false}],throwOnError:false,ignoredTags:["script","noscript","style","textarea","pre","code"]});}}' +
+    'function measureHeight(){var body=document.body;var doc=document.documentElement;var root=document.getElementById("content");var height=Math.max(body?body.scrollHeight:0,doc?doc.scrollHeight:0,root?root.scrollHeight:0,root?root.offsetHeight:0);if(window.markdownBridge&&window.markdownBridge.updateMarkdownHeight){window.markdownBridge.updateMarkdownHeight(String(Math.ceil(height)));}}' +
+    'function scheduleMeasure(){measureHeight();setTimeout(measureHeight,40);setTimeout(measureHeight,160);setTimeout(measureHeight,480);}' +
+    'if(window.ResizeObserver){new ResizeObserver(scheduleMeasure).observe(document.documentElement);}' +
+    'if(window.MutationObserver){new MutationObserver(scheduleMeasure).observe(document.getElementById("content"),{childList:true,subtree:true,characterData:true,attributes:true});}' +
+    'window.addEventListener("load",scheduleMeasure);window.addEventListener("resize",scheduleMeasure);' +
     'document.addEventListener("click",function(event){var target=event.target;if(target&&target.classList&&target.classList.contains("copy-code")){var block=target.closest(".code-block");var code=block?block.querySelector("code"):null;copyText(code?code.textContent:"",target);}});' +
     'render();' +
+    'scheduleMeasure();' +
     '})();';
 }

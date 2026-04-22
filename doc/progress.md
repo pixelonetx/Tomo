@@ -107,6 +107,13 @@
   - 声明 `markdown-it@14.1.1` / `KaTeX@0.16.45` 的用途、版本、许可证和官网。
   - 展示本地 license 文件位置。
   - 支持复制完整 open source notices。
+- 优化 Markdown WebView 高度：
+  - `MarkdownMessageView` 增加 `renderedHeight` 状态，首屏使用估算高度兜底。
+  - 注册 `markdownBridge.updateMarkdownHeight()` JS proxy，由 Web 页面回传实测高度。
+  - Web 端渲染后使用 `scrollHeight` / `offsetHeight` 测量正文高度。
+  - 使用 `ResizeObserver`、`MutationObserver`、`load`、`resize` 和多次延迟测量覆盖公式、表格、图片和代码块布局稳定过程。
+  - 内容或字号变化时先重置为估算高度，再由实测高度覆盖。
+  - 新增单元测试断言高度回传脚本和 bridge 名称存在。
 
 ### 验证
 
@@ -121,6 +128,6 @@
 
 ### 下一步
 
-1. 优化 Markdown WebView 高度回传，减少长内容估算误差。
-2. 接入联网搜索 Tool Calls 的受控 `web_search` 循环。
-3. 继续推进 Reasoning 折叠展示和搜索来源详情。
+1. 接入联网搜索 Tool Calls 的受控 `web_search` 循环。
+2. 继续推进 Reasoning 折叠展示和搜索来源详情。
+3. 补齐 Markdown 链接点击的外部浏览器跳转体验。

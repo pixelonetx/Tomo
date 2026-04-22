@@ -123,6 +123,9 @@ export default function localUnitTest() {
       expect(html.indexOf('auto-render.min.js') >= 0).assertTrue();
       expect(html.indexOf('renderMathInElement') >= 0).assertTrue();
       expect(html.indexOf('copy-code') >= 0).assertTrue();
+      expect(html.indexOf('markdownBridge.updateMarkdownHeight') >= 0).assertTrue();
+      expect(html.indexOf('ResizeObserver') >= 0).assertTrue();
+      expect(html.indexOf('MutationObserver') >= 0).assertTrue();
     });
 
     it('normalizes markdown task list markers and protects script data', 0, () => {
