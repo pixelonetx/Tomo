@@ -3,11 +3,13 @@ import { pasteboard } from '@kit.BasicServicesKit';
 import { APP_NAME } from '../shared/Constants';
 import { MarkdownMessageView } from '../components/MarkdownMessageView';
 import { ChatMessage, Conversation, MessageRole, SendStatus } from '../models/ChatModels';
+import { WEB_BROWSER_ROUTE, WebBrowserDestination, WebBrowserParam } from './WebBrowser';
 import { ChatViewModel } from '../viewmodels/ChatViewModel';
 
 @Entry
 @Component
 struct Index {
+  @Provide('navPathStack') navPathStack: NavPathStack = new NavPathStack();
   @State isSidebarOpen: boolean = false;
   @State showApiKeySheet: boolean = false;
   @State showMessageDetailSheet: boolean = false;
@@ -23,18 +25,25 @@ struct Index {
   }
 
   build() {
-    Stack() {
-      this.BackgroundLayer();
-      this.ChatLayer();
-      if (this.isSidebarOpen) {
-        this.SidebarLayer();
+    Navigation(this.navPathStack) {
+      Stack() {
+        this.BackgroundLayer();
+        this.ChatLayer();
+        if (this.isSidebarOpen) {
+          this.SidebarLayer();
+        }
+        this.TopOverlay();
+        this.BottomOverlay();
       }
-      this.TopOverlay();
-      this.BottomOverlay();
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('app.color.page_background'))
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r('app.color.page_background'))
+    .hideNavBar(true)
+    .mode(NavigationMode.Stack)
+    .navDestination(this.routeMap)
     .bindSheet(this.showApiKeySheet, this.ApiKeySheetContent(), {
       height: SheetSize.FIT_CONTENT,
       showClose: true,
@@ -59,6 +68,13 @@ struct Index {
         this.showAboutSheet = false;
       }
     })
+  }
+
+  @Builder
+  private routeMap(name: string) {
+    if (name === WEB_BROWSER_ROUTE) {
+      WebBrowserDestination();
+    }
   }
 
   @Builder
@@ -138,7 +154,10 @@ struct Index {
           }
           MarkdownMessageView({
             content: message.content,
-            fontSize: this.vm.fontSize
+            fontSize: this.vm.fontSize,
+            onOpenLink: (url: string, title: string): void => {
+              this.openWebLink(url, title);
+            }
           })
           if (message.status === SendStatus.FAILED && message.errorMessage.length > 0) {
             Text(message.errorMessage)
@@ -678,6 +697,17 @@ struct Index {
       message: message,
       duration: 1600
     }).catch((_err: Error): void => {
+    });
+  }
+
+  private openWebLink(url: string, title: string): void {
+    const param: WebBrowserParam = {
+      url: url,
+      title: title
+    };
+    this.navPathStack.pushPath({
+      name: WEB_BROWSER_ROUTE,
+      param: param
     });
   }
 

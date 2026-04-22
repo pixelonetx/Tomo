@@ -5,6 +5,7 @@ import { createDefaultSettings } from '../main/ets/models/SettingsModels';
 import { normalizeSearchResults } from '../main/ets/models/SearchModels';
 import { DeepSeekService, parseBalanceResponse, parseModelListResponse } from '../main/ets/services/DeepSeekService';
 import { mapDeepSeekError, parseSseChunk } from '../main/ets/services/DeepSeekSseParser';
+import { getDisplayUrl, normalizeWebUrl } from '../main/ets/services/BrowserService';
 import { buildMarkdownHtml, estimateMarkdownHeight, normalizeTaskListMarkers, toScriptString } from '../main/ets/shared/MarkdownHtmlRenderer';
 
 export default function localUnitTest() {
@@ -124,8 +125,17 @@ export default function localUnitTest() {
       expect(html.indexOf('renderMathInElement') >= 0).assertTrue();
       expect(html.indexOf('copy-code') >= 0).assertTrue();
       expect(html.indexOf('markdownBridge.updateMarkdownHeight') >= 0).assertTrue();
+      expect(html.indexOf('markdownBridge.openLink') >= 0).assertTrue();
+      expect(html.indexOf('closest("a[href]")') >= 0).assertTrue();
       expect(html.indexOf('ResizeObserver') >= 0).assertTrue();
       expect(html.indexOf('MutationObserver') >= 0).assertTrue();
+    });
+
+    it('accepts only http links for browser navigation', 0, () => {
+      expect(normalizeWebUrl(' https://example.com/a ')).assertEqual('https://example.com/a');
+      expect(normalizeWebUrl('http://example.com/a')).assertEqual('http://example.com/a');
+      expect(normalizeWebUrl('file:///data/a')).assertEqual('');
+      expect(getDisplayUrl('https://example.com/a')).assertEqual('example.com/a');
     });
 
     it('normalizes markdown task list markers and protects script data', 0, () => {

@@ -1,11 +1,14 @@
 import { BusinessError } from '@kit.BasicServicesKit';
 import { webview } from '@kit.ArkWeb';
+import { normalizeWebUrl } from '../services/BrowserService';
 import { buildMarkdownHtml, estimateMarkdownHeight } from '../shared/MarkdownHtmlRenderer';
 
 @Component
 export struct MarkdownMessageView {
   @Prop @Watch('onContentChanged') content: string;
   @Prop @Watch('onFontSizeChanged') fontSize: number;
+  onOpenLink: (url: string, title: string) => void = (_url: string, _title: string): void => {
+  };
   @State renderedHeight: number = 0;
   private controller: webview.WebviewController = new webview.WebviewController();
   private isControllerAttached: boolean = false;
@@ -46,9 +49,17 @@ export struct MarkdownMessageView {
     }
   }
 
+  openLink(urlText: string, titleText: string): void {
+    const url: string = normalizeWebUrl(urlText);
+    if (url.length === 0) {
+      return;
+    }
+    this.onOpenLink(url, titleText.trim());
+  }
+
   private registerHeightBridge(): void {
     try {
-      this.controller.registerJavaScriptProxy(this, 'markdownBridge', ['updateMarkdownHeight']);
+      this.controller.registerJavaScriptProxy(this, 'markdownBridge', ['updateMarkdownHeight', 'openLink']);
     } catch (err) {
       const error = err as BusinessError;
       console.error(`Markdown height bridge registration failed. code=${error.code}, message=${error.message}`);

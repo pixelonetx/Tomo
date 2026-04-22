@@ -114,6 +114,14 @@
   - 使用 `ResizeObserver`、`MutationObserver`、`load`、`resize` 和多次延迟测量覆盖公式、表格、图片和代码块布局稳定过程。
   - 内容或字号变化时先重置为估算高度，再由实测高度覆盖。
   - 新增单元测试断言高度回传脚本和 bridge 名称存在。
+- 新增 Navigation 内置网页查看页：
+  - 首页根容器改为 `Navigation + NavPathStack`，保持现有聊天界面作为导航首页。
+  - 新增 `WebBrowserDestination`，使用 ArkWeb 加载 http / https 页面。
+  - 支持 WebView 内后退，无法后退时弹出 Navigation 子页。
+  - 标题跟随网页 `onTitleReceive` 更新，并展示当前 URL 与加载进度。
+  - 提供刷新和用系统默认浏览器打开两个操作。
+  - Markdown 链接点击通过 `markdownBridge.openLink()` 回传 ArkTS，并推入 Navigation 内置浏览器页。
+  - 新增 `BrowserService`，集中处理 URL 归一化和系统浏览器拉起。
 
 ### 验证
 
