@@ -298,15 +298,6 @@ struct Index {
           })
       }
 
-      Button('Branch')
-        .fontSize(12)
-        .fontColor($r('app.color.text_secondary'))
-        .backgroundColor(Color.Transparent)
-        .height(28)
-        .onClick((): void => {
-          this.vm.branchConversationFromMessage(message.id);
-        })
-
       Button('Delete')
         .fontSize(12)
         .fontColor($r('app.color.text_secondary'))

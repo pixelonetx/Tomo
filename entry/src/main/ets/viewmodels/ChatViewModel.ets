@@ -393,24 +393,6 @@ export class ChatViewModel {
     await this.regenerateFromUserBranch(this.messages[userIndex].id);
   }
 
-  async branchConversationFromMessage(id: string): Promise<void> {
-    if (this.isLoading) {
-      return;
-    }
-    const targetIndex: number = this.findMessageIndex(id);
-    if (targetIndex < 0) {
-      return;
-    }
-    const target: ChatMessage = this.messages[targetIndex];
-    if (target.role === MessageRole.USER) {
-      await this.regenerateFromUserBranch(target.id);
-      return;
-    }
-    if (target.role === MessageRole.ASSISTANT && target.branchParentId.length > 0) {
-      await this.regenerateAssistantMessage(target.id);
-    }
-  }
-
   async continueFromMessage(id: string): Promise<void> {
     if (this.isLoading) {
       return;
