@@ -2,11 +2,11 @@ import { common } from '@kit.AbilityKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { util } from '@kit.ArkTS';
 import { fileIo, picker } from '@kit.CoreFileKit';
-import { APP_NAME, CONTEXT_EXTENDED_CHAR_BUDGET, CONTEXT_STANDARD_CHAR_BUDGET } from '../shared/Constants';
+import { APP_NAME } from '../shared/Constants';
 import { MarkdownMessageView } from '../components/MarkdownMessageView';
-import { ModelMode } from '../models/ApiModels';
+import { ApiKeySettingsPanel, SettingsView } from '../components/SettingsView';
+import { DangerConfirmSheet, EditMessageSheet, MessageDetailSheet } from '../components/MessageSheets';
 import { ChatMessage, Conversation, MessageRole, SendStatus } from '../models/ChatModels';
-import { SearchResult } from '../models/SearchModels';
 import { WEB_BROWSER_ROUTE, WebBrowserDestination, WebBrowserParam } from './WebBrowser';
 import { ChatViewModel } from '../viewmodels/ChatViewModel';
 
@@ -104,7 +104,21 @@ struct Index {
       WebBrowserDestination();
     }
     if (name === SETTINGS_ROUTE) {
-      this.SettingsDestination();
+      SettingsView(
+        this.vm,
+        (text: string): void => {
+          this.copyText(text);
+        },
+        (format: string): void => {
+          this.exportCurrentConversation(format);
+        },
+        (action: string): void => {
+          this.showDangerConfirm(action);
+        },
+        (): void => {
+          this.showAboutSheet = true;
+        }
+      );
     }
   }
 
@@ -557,444 +571,12 @@ struct Index {
 
   @Builder
   private ApiKeySheetContent() {
-    Column({ space: 18 }) {
-      Column({ space: 6 }) {
-        Text('API Keys')
-          .fontSize(20)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-          .width('100%')
-
-        Text('Stored locally as HUKS AES-GCM encrypted payloads. Legacy Preferences keys are migrated on startup. DeepSeek powers chat; Tavily powers web search.')
-          .fontSize(13)
-          .fontColor($r('app.color.text_secondary'))
-          .lineHeight(19)
-          .width('100%')
+    ApiKeySettingsPanel(
+      this.vm,
+      (): void => {
+        this.showApiKeySheet = false;
       }
-      .width('100%')
-
-      Text('DeepSeek')
-        .fontSize(13)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.text_primary'))
-        .width('100%')
-
-      TextInput({ placeholder: 'sk-...', text: this.vm.apiKeyDraft })
-        .type(InputType.Password)
-        .fontSize(15)
-        .fontColor($r('app.color.text_primary'))
-        .placeholderColor($r('app.color.text_placeholder'))
-        .backgroundColor($r('app.color.input_bar_background'))
-        .border({ width: 1, color: $r('app.color.input_border') })
-        .borderRadius(10)
-        .height(46)
-        .padding({ left: 12, right: 12 })
-        .onChange((value: string): void => {
-          this.vm.apiKeyDraft = value;
-        })
-
-      if (this.vm.settingsMessage.length > 0) {
-        Text(this.vm.settingsMessage)
-          .fontSize(13)
-          .fontColor($r('app.color.text_secondary'))
-          .width('100%')
-      }
-
-      Row({ space: 10 }) {
-        Button('Clear')
-          .layoutWeight(1)
-          .height(42)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor(Color.Transparent)
-          .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(10)
-          .onClick((): void => {
-            this.vm.clearApiKey();
-          })
-
-        Button('Check')
-          .layoutWeight(1)
-          .height(42)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor(Color.Transparent)
-          .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(10)
-          .onClick((): void => {
-            this.vm.checkApiKey();
-          })
-
-        Button('Save')
-          .layoutWeight(1)
-          .height(42)
-          .fontColor($r('app.color.text_on_primary'))
-          .backgroundColor($r('app.color.button_primary'))
-          .borderRadius(10)
-          .onClick((): void => {
-            this.vm.saveApiKey(this.vm.apiKeyDraft);
-            this.showApiKeySheet = false;
-          })
-      }
-      .width('100%')
-
-      Text('Tavily Search')
-        .fontSize(13)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.text_primary'))
-        .width('100%')
-
-      TextInput({ placeholder: 'tvly-...', text: this.vm.searchApiKeyDraft })
-        .type(InputType.Password)
-        .fontSize(15)
-        .fontColor($r('app.color.text_primary'))
-        .placeholderColor($r('app.color.text_placeholder'))
-        .backgroundColor($r('app.color.input_bar_background'))
-        .border({ width: 1, color: $r('app.color.input_border') })
-        .borderRadius(10)
-        .height(46)
-        .padding({ left: 12, right: 12 })
-        .onChange((value: string): void => {
-          this.vm.searchApiKeyDraft = value;
-        })
-
-      Row({ space: 10 }) {
-        Button('Clear search')
-          .layoutWeight(1)
-          .height(42)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor(Color.Transparent)
-          .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(10)
-          .onClick((): void => {
-            this.vm.clearSearchApiKey();
-          })
-
-        Button('Check search')
-          .layoutWeight(1)
-          .height(42)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor(Color.Transparent)
-          .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(10)
-          .onClick((): void => {
-            this.vm.checkSearchApiKey();
-          })
-
-        Button('Save search')
-          .layoutWeight(1)
-          .height(42)
-          .fontColor($r('app.color.text_on_primary'))
-          .backgroundColor($r('app.color.button_primary'))
-          .borderRadius(10)
-          .onClick((): void => {
-            this.vm.saveSearchApiKey(this.vm.searchApiKeyDraft);
-          })
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .padding({ left: 20, right: 20, top: 22, bottom: 24 })
-    .backgroundColor($r('app.color.page_background'))
-  }
-
-  @Builder
-  private SettingsDestination() {
-    NavDestination() {
-      List({ space: 14 }) {
-        ListItem() {
-          this.SettingsSectionTitle('Model')
-        }
-        ListItem() {
-          Row({ space: 10 }) {
-            Button('Chat')
-              .layoutWeight(1)
-              .height(40)
-              .fontColor(this.vm.modelMode === ModelMode.CHAT ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-              .backgroundColor(this.vm.modelMode === ModelMode.CHAT ? $r('app.color.button_primary') : Color.Transparent)
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                this.vm.setModelMode(ModelMode.CHAT);
-              })
-            Button('Reasoner')
-              .layoutWeight(1)
-              .height(40)
-              .fontColor(this.vm.modelMode === ModelMode.REASONER ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-              .backgroundColor(this.vm.modelMode === ModelMode.REASONER ? $r('app.color.button_primary') : Color.Transparent)
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                this.vm.setModelMode(ModelMode.REASONER);
-              })
-          }
-          .width('100%')
-        }
-
-        ListItem() {
-          this.SettingsSectionTitle('Reading')
-        }
-        ListItem() {
-          Row({ space: 10 }) {
-            Button('-')
-              .width(44)
-              .height(40)
-              .fontColor($r('app.color.text_primary'))
-              .backgroundColor(Color.Transparent)
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                this.vm.setFontSize(this.vm.fontSize - 1);
-              })
-            Text(`Font ${this.vm.fontSize}`)
-              .fontSize(14)
-              .fontColor($r('app.color.text_primary'))
-              .textAlign(TextAlign.Center)
-              .layoutWeight(1)
-            Button('+')
-              .width(44)
-              .height(40)
-              .fontColor($r('app.color.text_primary'))
-              .backgroundColor(Color.Transparent)
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                this.vm.setFontSize(this.vm.fontSize + 1);
-              })
-          }
-          .width('100%')
-        }
-
-        ListItem() {
-          this.SettingsSectionTitle('Context')
-        }
-        ListItem() {
-          Column({ space: 10 }) {
-            Row({ space: 10 }) {
-              Button('Standard 128K')
-                .layoutWeight(1)
-                .height(40)
-                .fontSize(13)
-                .fontColor(this.vm.getContextWindowText() === 'Standard 128K' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-                .backgroundColor(this.vm.getContextWindowText() === 'Standard 128K' ? $r('app.color.button_primary') : Color.Transparent)
-                .border({ width: 1, color: $r('app.color.divider') })
-                .borderRadius(8)
-                .onClick((): void => {
-                  this.vm.setContextWindowChars(CONTEXT_STANDARD_CHAR_BUDGET);
-                })
-              Button('1M-ready')
-                .layoutWeight(1)
-                .height(40)
-                .fontSize(13)
-                .fontColor(this.vm.getContextWindowText() === 'Extended 1M-ready' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-                .backgroundColor(this.vm.getContextWindowText() === 'Extended 1M-ready' ? $r('app.color.button_primary') : Color.Transparent)
-                .border({ width: 1, color: $r('app.color.divider') })
-                .borderRadius(8)
-                .onClick((): void => {
-                  this.vm.setContextWindowChars(CONTEXT_EXTENDED_CHAR_BUDGET);
-                })
-            }
-            .width('100%')
-            Text(this.vm.getContextUsageText())
-              .fontSize(13)
-              .fontColor($r('app.color.text_secondary'))
-              .lineHeight(19)
-              .width('100%')
-          }
-          .width('100%')
-        }
-
-        ListItem() {
-          this.SettingsSectionTitle('Web Search')
-        }
-        ListItem() {
-          Row({ space: 10 }) {
-            Button(this.vm.webSearchEnabled ? 'Default On' : 'Default Off')
-              .layoutWeight(1)
-              .height(40)
-              .fontColor(this.vm.webSearchEnabled ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-              .backgroundColor(this.vm.webSearchEnabled ? $r('app.color.button_primary') : Color.Transparent)
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                this.vm.setWebSearchDefault(!this.vm.webSearchEnabled);
-              })
-            Button('-')
-              .width(44)
-              .height(40)
-              .fontColor($r('app.color.text_primary'))
-              .backgroundColor(Color.Transparent)
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                this.vm.setSearchMaxResults(this.vm.getSearchMaxResults() - 1);
-              })
-            Text(`Max ${this.vm.getSearchMaxResults()}`)
-              .fontSize(14)
-              .fontColor($r('app.color.text_primary'))
-              .textAlign(TextAlign.Center)
-              .width(64)
-            Button('+')
-              .width(44)
-              .height(40)
-              .fontColor($r('app.color.text_primary'))
-              .backgroundColor(Color.Transparent)
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                this.vm.setSearchMaxResults(this.vm.getSearchMaxResults() + 1);
-              })
-          }
-          .width('100%')
-        }
-
-        ListItem() {
-          this.SettingsSectionTitle('API Keys')
-        }
-        ListItem() {
-          this.ApiKeySheetContent()
-        }
-
-        ListItem() {
-          this.SettingsSectionTitle('Account')
-        }
-        ListItem() {
-          Column({ space: 10 }) {
-            Text(this.vm.getProviderStatusText())
-              .fontSize(13)
-              .fontColor($r('app.color.text_secondary'))
-              .width('100%')
-            Row({ space: 10 }) {
-              Button('Check balance')
-                .layoutWeight(1)
-                .height(40)
-                .fontColor($r('app.color.text_primary'))
-                .backgroundColor(Color.Transparent)
-                .border({ width: 1, color: $r('app.color.divider') })
-                .borderRadius(8)
-                .onClick((): void => {
-                  this.vm.checkBalance();
-                })
-              Button('Copy status')
-                .layoutWeight(1)
-                .height(40)
-                .fontColor($r('app.color.text_primary'))
-                .backgroundColor(Color.Transparent)
-                .border({ width: 1, color: $r('app.color.divider') })
-                .borderRadius(8)
-                .onClick((): void => {
-                  this.copyText(this.vm.getProviderStatusText());
-                })
-            }
-            .width('100%')
-            if (this.vm.balanceMessage.length > 0) {
-              Text(this.vm.balanceMessage)
-                .fontSize(13)
-                .fontColor($r('app.color.text_secondary'))
-                .lineHeight(19)
-                .width('100%')
-            }
-          }
-          .width('100%')
-        }
-
-        ListItem() {
-          this.SettingsSectionTitle('Data')
-        }
-        ListItem() {
-          Column({ space: 10 }) {
-            Text(this.vm.getConversationCountText())
-              .fontSize(13)
-              .fontColor($r('app.color.text_secondary'))
-              .width('100%')
-            Row({ space: 10 }) {
-              Button('Export Markdown')
-                .layoutWeight(1)
-                .height(40)
-                .fontSize(13)
-                .fontColor($r('app.color.text_primary'))
-                .backgroundColor(Color.Transparent)
-                .border({ width: 1, color: $r('app.color.divider') })
-                .borderRadius(8)
-                .onClick((): void => {
-                  this.exportCurrentConversation('markdown');
-                })
-              Button('Export JSON')
-                .layoutWeight(1)
-                .height(40)
-                .fontSize(13)
-                .fontColor($r('app.color.text_primary'))
-                .backgroundColor(Color.Transparent)
-                .border({ width: 1, color: $r('app.color.divider') })
-                .borderRadius(8)
-                .onClick((): void => {
-                  this.exportCurrentConversation('json');
-                })
-            }
-            .width('100%')
-            Row({ space: 10 }) {
-              Button('Clear chats')
-                .layoutWeight(1)
-                .height(40)
-                .fontSize(13)
-                .fontColor($r('app.color.text_primary'))
-                .backgroundColor(Color.Transparent)
-                .border({ width: 1, color: $r('app.color.divider') })
-                .borderRadius(8)
-                .onClick((): void => {
-                  this.showDangerConfirm('chats');
-                })
-              Button('Clear settings')
-                .layoutWeight(1)
-                .height(40)
-                .fontSize(13)
-                .fontColor($r('app.color.text_primary'))
-                .backgroundColor(Color.Transparent)
-                .border({ width: 1, color: $r('app.color.divider') })
-                .borderRadius(8)
-                .onClick((): void => {
-                  this.showDangerConfirm('settings');
-                })
-            }
-            .width('100%')
-            if (this.vm.settingsMessage.length > 0) {
-              Text(this.vm.settingsMessage)
-                .fontSize(13)
-                .fontColor($r('app.color.text_secondary'))
-                .lineHeight(19)
-                .width('100%')
-            }
-          }
-          .width('100%')
-        }
-
-        ListItem() {
-          Button('About & licenses')
-            .width('100%')
-            .height(42)
-            .fontColor($r('app.color.text_primary'))
-            .backgroundColor(Color.Transparent)
-            .border({ width: 1, color: $r('app.color.divider') })
-            .borderRadius(8)
-            .onClick((): void => {
-              this.showAboutSheet = true;
-            })
-        }
-      }
-      .width('100%')
-      .height('100%')
-      .padding({ left: 18, right: 18, top: 14, bottom: 22 })
-      .backgroundColor($r('app.color.page_background'))
-    }
-    .title('Settings')
-    .hideTitleBar(false)
-  }
-
-  @Builder
-  private SettingsSectionTitle(title: string) {
-    Text(title)
-      .fontSize(13)
-      .fontWeight(FontWeight.Medium)
-      .fontColor($r('app.color.text_secondary'))
-      .width('100%')
+    );
   }
 
   @Builder
@@ -1090,170 +672,53 @@ struct Index {
 
   @Builder
   private DangerConfirmSheetContent() {
-    Column({ space: 16 }) {
-      Text(this.getDangerConfirmTitle())
-        .fontSize(20)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.text_primary'))
-        .width('100%')
-
-      Text(this.getDangerConfirmMessage())
-        .fontSize(13)
-        .fontColor($r('app.color.text_secondary'))
-        .lineHeight(19)
-        .width('100%')
-
-      Row({ space: 10 }) {
-        Button('Cancel')
-          .layoutWeight(1)
-          .height(42)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor(Color.Transparent)
-          .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(10)
-          .onClick((): void => {
-            this.showDangerConfirmSheet = false;
-            this.pendingDangerAction = '';
-            this.pendingDeleteMessageId = '';
-          })
-
-        Button(this.getDangerConfirmActionText())
-          .layoutWeight(1)
-          .height(42)
-          .fontColor($r('app.color.text_on_primary'))
-          .backgroundColor($r('app.color.button_primary'))
-          .borderRadius(10)
-          .onClick((): void => {
-            this.runDangerAction();
-          })
+    DangerConfirmSheet(
+      this.getDangerConfirmTitle(),
+      this.getDangerConfirmMessage(),
+      this.getDangerConfirmActionText(),
+      (): void => {
+        this.showDangerConfirmSheet = false;
+        this.pendingDangerAction = '';
+        this.pendingDeleteMessageId = '';
+      },
+      (): void => {
+        this.runDangerAction();
       }
-      .width('100%')
-    }
-    .width('100%')
-    .padding({ left: 20, right: 20, top: 22, bottom: 24 })
-    .backgroundColor($r('app.color.page_background'))
+    );
   }
 
   @Builder
   private MessageDetailSheetContent() {
-    Column({ space: 16 }) {
-      Text('Message details')
-        .fontSize(20)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.text_primary'))
-        .width('100%')
-
-      this.DetailRow('Role', this.getSelectedMessageRole())
-      this.DetailRow('Status', this.getSelectedMessageStatus())
-      this.DetailRow('Model', this.getSelectedMessageModel())
-      this.DetailRow('Finish reason', this.getSelectedMessageFinishReason())
-      this.DetailRow('Response ID', this.getSelectedMessageResponseId())
-      this.DetailRow('Prompt tokens', this.getSelectedMessagePromptTokens())
-      this.DetailRow('Completion tokens', this.getSelectedMessageCompletionTokens())
-      this.DetailRow('Reasoning tokens', this.getSelectedMessageReasoningTokens())
-      this.DetailRow('Total tokens', this.getSelectedMessageTotalTokens())
-      this.DetailRow('Cache hit / miss', this.getSelectedMessageCacheTokens())
-      this.DetailRow('Sources', this.getSelectedMessageSourceCount())
-      if (this.getSelectedMessageSourceCount() !== '0') {
-        this.SourceList()
+    MessageDetailSheet(
+      this.getSelectedMessage(),
+      (text: string): void => {
+        this.copyText(text);
+      },
+      (url: string, title: string): void => {
+        this.openWebLink(url, title);
+      },
+      (): void => {
+        this.showMessageDetailSheet = false;
       }
-
-      Row({ space: 10 }) {
-        Button('Copy message')
-          .layoutWeight(1)
-          .height(42)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor(Color.Transparent)
-          .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(10)
-          .onClick((): void => {
-            this.copyText(this.getSelectedMessageContent());
-          })
-
-        Button('Copy details')
-          .layoutWeight(1)
-          .height(42)
-          .fontColor($r('app.color.text_on_primary'))
-          .backgroundColor($r('app.color.button_primary'))
-          .borderRadius(10)
-          .onClick((): void => {
-            this.copyText(this.getSelectedMessageDetailsText());
-          })
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .padding({ left: 20, right: 20, top: 22, bottom: 24 })
-    .backgroundColor($r('app.color.page_background'))
+    );
   }
 
   @Builder
   private EditMessageSheetContent() {
-    Column({ space: 16 }) {
-      Text('Edit message')
-        .fontSize(20)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.text_primary'))
-        .width('100%')
-
-      TextArea({ placeholder: 'Message', text: this.editMessageDraft })
-        .fontSize(this.vm.fontSize)
-        .fontColor($r('app.color.text_primary'))
-        .placeholderColor($r('app.color.text_placeholder'))
-        .backgroundColor($r('app.color.input_bar_background'))
-        .border({ width: 1, color: $r('app.color.input_border') })
-        .borderRadius(10)
-        .height(168)
-        .padding({ left: 12, right: 12, top: 10, bottom: 10 })
-        .onChange((value: string): void => {
-          this.editMessageDraft = value;
-        })
-
-      Row({ space: 10 }) {
-        Button('Cancel')
-          .layoutWeight(1)
-          .height(42)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor(Color.Transparent)
-          .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(10)
-          .onClick((): void => {
-            this.showEditMessageSheet = false;
-          })
-
-        Button('Save & regenerate')
-          .layoutWeight(1)
-          .height(42)
-          .fontColor($r('app.color.text_on_primary'))
-          .backgroundColor($r('app.color.button_primary'))
-          .borderRadius(10)
-          .onClick((): void => {
-            this.vm.editUserMessageAndRegenerate(this.selectedMessageId, this.editMessageDraft);
-            this.showEditMessageSheet = false;
-          })
+    EditMessageSheet(
+      this.editMessageDraft,
+      this.vm.fontSize,
+      (value: string): void => {
+        this.editMessageDraft = value;
+      },
+      (): void => {
+        this.showEditMessageSheet = false;
+      },
+      (): void => {
+        this.vm.editUserMessageAndRegenerate(this.selectedMessageId, this.editMessageDraft);
+        this.showEditMessageSheet = false;
       }
-      .width('100%')
-    }
-    .width('100%')
-    .padding({ left: 20, right: 20, top: 22, bottom: 24 })
-    .backgroundColor($r('app.color.page_background'))
-  }
-
-  @Builder
-  private DetailRow(label: string, value: string) {
-    Row({ space: 12 }) {
-      Text(label)
-        .fontSize(13)
-        .fontColor($r('app.color.text_secondary'))
-        .width(128)
-      Text(value.length > 0 ? value : '-')
-        .fontSize(13)
-        .fontColor($r('app.color.text_primary'))
-        .layoutWeight(1)
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .width('100%')
+    );
   }
 
   private getCurrentTitle(): string {
@@ -1435,65 +900,6 @@ struct Index {
     });
   }
 
-  @Builder
-  private SourceList() {
-      Column({ space: 10 }) {
-      ForEach(this.getSelectedMessageSources(), (source: SearchResult, index: number) => {
-        Column({ space: 8 }) {
-          Row({ space: 8 }) {
-            Button(`[${source.index > 0 ? source.index : index + 1}] ${source.title}`)
-              .layoutWeight(1)
-              .height(40)
-              .fontSize(13)
-              .fontColor($r('app.color.text_primary'))
-              .backgroundColor(Color.Transparent)
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                this.showMessageDetailSheet = false;
-                this.openWebLink(source.url, source.title);
-              })
-
-            Button('Copy')
-              .width(72)
-              .height(40)
-              .fontSize(12)
-              .fontColor($r('app.color.text_primary'))
-              .backgroundColor(Color.Transparent)
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                this.copyText(source.url);
-              })
-          }
-          .width('100%')
-
-          Text(source.source.length > 0 ? source.source : this.getHostFromUrl(source.url))
-            .fontSize(12)
-            .fontColor($r('app.color.text_secondary'))
-            .width('100%')
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-          if (source.snippet.length > 0) {
-            Text(source.snippet)
-              .fontSize(12)
-              .fontColor($r('app.color.text_secondary'))
-              .lineHeight(18)
-              .width('100%')
-              .maxLines(3)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-        }
-        .width('100%')
-        .padding(10)
-        .border({ width: 1, color: $r('app.color.divider') })
-        .borderRadius(8)
-      }, (source: SearchResult): string => source.url)
-    }
-    .width('100%')
-  }
-
   private getSelectedMessage(): ChatMessage | null {
     const messages: ChatMessage[] = this.vm.messages;
     const selectedMessageId: string = this.selectedMessageId;
@@ -1503,145 +909,6 @@ struct Index {
       }
     }
     return null;
-  }
-
-  private getSelectedMessageContent(): string {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null) {
-      return '';
-    }
-    return message.content;
-  }
-
-  private getSelectedMessageRole(): string {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null) {
-      return '';
-    }
-    return message.role;
-  }
-
-  private getSelectedMessageStatus(): string {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null) {
-      return '';
-    }
-    return message.status;
-  }
-
-  private getSelectedMessageModel(): string {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null) {
-      return '';
-    }
-    return message.model;
-  }
-
-  private getSelectedMessageFinishReason(): string {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null) {
-      return '';
-    }
-    return message.finishReason;
-  }
-
-  private getSelectedMessageResponseId(): string {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null) {
-      return '';
-    }
-    return message.responseId;
-  }
-
-  private getSelectedMessagePromptTokens(): string {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null) {
-      return '0';
-    }
-    return `${message.promptTokens}`;
-  }
-
-  private getSelectedMessageCompletionTokens(): string {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null) {
-      return '0';
-    }
-    return `${message.completionTokens}`;
-  }
-
-  private getSelectedMessageReasoningTokens(): string {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null) {
-      return '0';
-    }
-    return `${message.reasoningTokens}`;
-  }
-
-  private getSelectedMessageTotalTokens(): string {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null) {
-      return '0';
-    }
-    return `${message.totalTokens}`;
-  }
-
-  private getSelectedMessageCacheTokens(): string {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null) {
-      return '0 / 0';
-    }
-    return `${message.cacheHitTokens} / ${message.cacheMissTokens}`;
-  }
-
-  private getSelectedMessageSourceCount(): string {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null) {
-      return '0';
-    }
-    return `${message.searchSources.length}`;
-  }
-
-  private getSelectedMessageSources(): SearchResult[] {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null) {
-      return [];
-    }
-    return message.searchSources;
-  }
-
-  private getSelectedMessageSourcesText(): string {
-    const message: ChatMessage | null = this.getSelectedMessage();
-    if (message === null || message.searchSources.length === 0) {
-      return '';
-    }
-    let text: string = '';
-    for (let i = 0; i < message.searchSources.length; i++) {
-      const source = message.searchSources[i];
-      const index: number = source.index > 0 ? source.index : i + 1;
-      text += `[${index}] ${source.title}\n${source.url}`;
-      if (source.snippet.length > 0) {
-        text += `\n${source.snippet}`;
-      }
-      if (i < message.searchSources.length - 1) {
-        text += '\n\n';
-      }
-    }
-    return text;
-  }
-
-  private getSelectedMessageDetailsText(): string {
-    return `Role: ${this.getSelectedMessageRole()}\n` +
-      `Status: ${this.getSelectedMessageStatus()}\n` +
-      `Model: ${this.getSelectedMessageModel()}\n` +
-      `Finish reason: ${this.getSelectedMessageFinishReason()}\n` +
-      `Response ID: ${this.getSelectedMessageResponseId()}\n` +
-      `Prompt tokens: ${this.getSelectedMessagePromptTokens()}\n` +
-      `Completion tokens: ${this.getSelectedMessageCompletionTokens()}\n` +
-      `Reasoning tokens: ${this.getSelectedMessageReasoningTokens()}\n` +
-      `Total tokens: ${this.getSelectedMessageTotalTokens()}\n` +
-      `Cache hit / miss: ${this.getSelectedMessageCacheTokens()}\n` +
-      `Sources: ${this.getSelectedMessageSourceCount()}\n\n` +
-      this.getSelectedMessageSourcesText();
   }
 
   private getOpenSourceNoticesText(): string {
@@ -1659,12 +926,4 @@ struct Index {
       'resources/rawfile/markdown/LICENSE-katex.txt';
   }
 
-  private getHostFromUrl(url: string): string {
-    const noProtocol: string = url.replace(/^https?:\/\//i, '');
-    const slashIndex: number = noProtocol.indexOf('/');
-    if (slashIndex < 0) {
-      return noProtocol;
-    }
-    return noProtocol.substring(0, slashIndex);
-  }
 }
