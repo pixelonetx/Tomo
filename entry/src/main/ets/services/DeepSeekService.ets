@@ -4,8 +4,12 @@ import { http } from '@kit.NetworkKit';
 import {
   ApiMessage,
   ApiRequestMessage,
+  ApiToolCall,
+  ApiToolCallFunction,
+  ApiToolDefinition,
   BalanceInfo,
   BalanceResponse,
+  ChatCompletionResponse,
   ChatCompletionRequest,
   ModelInfo,
   ModelListResponse,
@@ -129,6 +133,22 @@ export class DeepSeekService {
     return parseBalanceResponse(text);
   }
 
+  async sendToolRound(messages: ApiMessage[], mode: ModelMode, tools: ApiToolDefinition[]): Promise<ChatCompletionResponse | null> {
+    if (this.apiKey.length === 0) {
+      return null;
+    }
+    const requestBody: ChatCompletionRequest = this.buildToolRequestBody(messages, mode, tools);
+    const text: string = await this.requestText(
+      `${DEEPSEEK_BASE_URL}${DEEPSEEK_CHAT_ENDPOINT}`,
+      http.RequestMethod.POST,
+      JSON.stringify(requestBody)
+    );
+    if (text.length === 0) {
+      return null;
+    }
+    return parseChatCompletionResponse(text);
+  }
+
   buildRequestBody(messages: ApiMessage[], mode: ModelMode): ChatCompletionRequest {
     const isReasoner: boolean = mode === ModelMode.REASONER;
     const request: ChatCompletionRequest = {
@@ -137,6 +157,22 @@ export class DeepSeekService {
       stream: true,
       stream_options: { include_usage: true },
       max_tokens: isReasoner ? REASONER_DEFAULT_MAX_TOKENS : CHAT_DEFAULT_MAX_TOKENS
+    };
+    if (!isReasoner) {
+      request.temperature = 1.0;
+    }
+    return request;
+  }
+
+  buildToolRequestBody(messages: ApiMessage[], mode: ModelMode, tools: ApiToolDefinition[]): ChatCompletionRequest {
+    const isReasoner: boolean = mode === ModelMode.REASONER;
+    const request: ChatCompletionRequest = {
+      model: getDeepSeekModelId(mode),
+      messages: this.toRequestMessages(messages, true),
+      stream: false,
+      max_tokens: isReasoner ? REASONER_DEFAULT_MAX_TOKENS : CHAT_DEFAULT_MAX_TOKENS,
+      tools: tools,
+      tool_choice: 'auto'
     };
     if (!isReasoner) {
       request.temperature = 1.0;
@@ -158,9 +194,26 @@ export class DeepSeekService {
       if (message.toolCallId !== undefined && message.toolCallId.length > 0) {
         item.tool_call_id = message.toolCallId;
       }
+      if (message.toolCallsJson !== undefined && message.toolCallsJson.length > 0) {
+        const toolCalls: Object[] = this.parseToolCallsJson(message.toolCallsJson);
+        if (toolCalls.length > 0) {
+          item.tool_calls = toolCalls;
+        }
+      }
       items.push(item);
     }
     return items;
+  }
+
+  private parseToolCallsJson(text: string): Object[] {
+    try {
+      const parsed = JSON.parse(text) as Object[];
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (_err) {
+    }
+    return [];
   }
 
   private handleStreamText(text: string, callback: StreamCallback): void {
@@ -314,4 +367,84 @@ function booleanField(source: Record<string, Object>, key: string): boolean {
     return value;
   }
   return false;
+}
+
+export function parseChatCompletionResponse(text: string): ChatCompletionResponse | null {
+  try {
+    const root = JSON.parse(text) as Record<string, Object>;
+    const choices = root['choices'] as Array<Record<string, Object>>;
+    const usage = root['usage'] as Record<string, Object>;
+    const response: ChatCompletionResponse = {
+      content: '',
+      reasoningContent: '',
+      metadata: {
+        responseId: stringField(root, 'id'),
+        model: stringField(root, 'model'),
+        created: numberField(root, 'created'),
+        systemFingerprint: stringField(root, 'system_fingerprint'),
+        finishReason: ''
+      },
+      usage: usage !== undefined ? parseCompletionUsage(usage) : createEmptyUsage(),
+      toolCalls: []
+    };
+    if (choices !== undefined && choices.length > 0) {
+      const firstChoice = choices[0];
+      response.metadata.finishReason = stringField(firstChoice, 'finish_reason');
+      const message = firstChoice['message'] as Record<string, Object>;
+      if (message !== undefined) {
+        response.content = stringField(message, 'content');
+        response.reasoningContent = stringField(message, 'reasoning_content');
+        response.toolCalls = parseToolCalls(message['tool_calls'] as Array<Record<string, Object>>);
+      }
+    }
+    return response;
+  } catch (_err) {
+    return null;
+  }
+}
+
+function parseToolCalls(items: Array<Record<string, Object>>): ApiToolCall[] {
+  const toolCalls: ApiToolCall[] = [];
+  if (items === undefined) {
+    return toolCalls;
+  }
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const fn = item['function'] as Record<string, Object>;
+    const callFunction: ApiToolCallFunction = {
+      name: fn !== undefined ? stringField(fn, 'name') : '',
+      arguments: fn !== undefined ? stringField(fn, 'arguments') : ''
+    };
+    toolCalls.push({
+      id: stringField(item, 'id'),
+      type: stringField(item, 'type'),
+      function: callFunction
+    });
+  }
+  return toolCalls;
+}
+
+function parseCompletionUsage(usage: Record<string, Object>): UsageInfo {
+  const completionDetails = usage['completion_tokens_details'] as Record<string, Object>;
+  const promptDetails = usage['prompt_tokens_details'] as Record<string, Object>;
+  const info: UsageInfo = createEmptyUsage();
+  info.promptTokens = numberField(usage, 'prompt_tokens');
+  info.completionTokens = numberField(usage, 'completion_tokens');
+  info.totalTokens = numberField(usage, 'total_tokens');
+  if (completionDetails !== undefined) {
+    info.reasoningTokens = numberField(completionDetails, 'reasoning_tokens');
+  }
+  if (promptDetails !== undefined) {
+    info.cacheHitTokens = numberField(promptDetails, 'cached_tokens');
+    info.cacheMissTokens = Math.max(info.promptTokens - info.cacheHitTokens, 0);
+  }
+  return info;
+}
+
+function numberField(source: Record<string, Object>, key: string): number {
+  const value = source[key];
+  if (typeof value === 'number') {
+    return value;
+  }
+  return 0;
 }

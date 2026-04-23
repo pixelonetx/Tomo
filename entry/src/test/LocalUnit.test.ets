@@ -1,11 +1,19 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
-import { ApiMessage, ModelMode, getDeepSeekModelId } from '../main/ets/models/ApiModels';
+import { ApiMessage, ApiToolDefinition, ModelMode, getDeepSeekModelId } from '../main/ets/models/ApiModels';
 import { MessageRole, createConversationTitle, createMessage } from '../main/ets/models/ChatModels';
 import { createDefaultSettings } from '../main/ets/models/SettingsModels';
-import { normalizeSearchResults } from '../main/ets/models/SearchModels';
-import { DeepSeekService, parseBalanceResponse, parseModelListResponse } from '../main/ets/services/DeepSeekService';
+import { SearchResult, normalizeSearchResults } from '../main/ets/models/SearchModels';
+import { DeepSeekService, parseBalanceResponse, parseChatCompletionResponse, parseModelListResponse } from '../main/ets/services/DeepSeekService';
 import { mapDeepSeekError, parseSseChunk } from '../main/ets/services/DeepSeekSseParser';
 import { getDisplayUrl, normalizeWebUrl } from '../main/ets/services/BrowserService';
+import {
+  WEB_SEARCH_TOOL_NAME,
+  createFailedToolResultJson,
+  createSearchToolResultJson,
+  createToolCallRecord,
+  createWebSearchToolDefinition,
+  parseWebSearchArguments
+} from '../main/ets/services/SearchToolService';
 import { buildMarkdownHtml, estimateMarkdownHeight, normalizeTaskListMarkers, toScriptString } from '../main/ets/shared/MarkdownHtmlRenderer';
 
 export default function localUnitTest() {
@@ -34,6 +42,17 @@ export default function localUnitTest() {
       expect(chatBody.messages[0].reasoning_content).assertEqual('hidden');
       expect(reasonerBody.model).assertEqual('deepseek-reasoner');
       expect(reasonerBody.messages[0].reasoning_content).assertUndefined();
+    });
+
+    it('builds DeepSeek web_search tool schema and tool request body', 0, () => {
+      const service = new DeepSeekService();
+      const tool: ApiToolDefinition = createWebSearchToolDefinition();
+      const requestBody = service.buildToolRequestBody([{ role: 'user', content: 'latest DeepSeek API changes' }], ModelMode.CHAT, [tool]);
+      expect(tool.function.name).assertEqual(WEB_SEARCH_TOOL_NAME);
+      expect(JSON.stringify(tool.function.parameters).indexOf('"additionalProperties":false') >= 0).assertTrue();
+      expect(requestBody.stream).assertFalse();
+      expect(requestBody.tool_choice).assertEqual('auto');
+      expect(requestBody.tools?.length).assertEqual(1);
     });
 
     it('creates bounded conversation titles', 0, () => {
@@ -89,6 +108,7 @@ export default function localUnitTest() {
       const results = normalizeSearchResults([
         { title: 'A', url: 'https://example.com/a', snippet: 'alpha', publishedAt: '', source: 'x' },
         { title: 'A again', url: 'https://example.com/a', snippet: 'duplicate', publishedAt: '', source: 'x' },
+        { title: '', url: 'https://example.com/empty-title', snippet: 'empty title', publishedAt: '', source: 'x' },
         { title: 'B', url: 'https://example.com/b', snippet: 'beta', publishedAt: '', source: 'x' }
       ], 5);
       expect(results.length).assertEqual(2);
@@ -115,6 +135,31 @@ export default function localUnitTest() {
       expect(response?.isAvailable).assertTrue();
       expect(response?.balanceInfos.length).assertEqual(1);
       expect(response?.balanceInfos[0].currency).assertEqual('CNY');
+    });
+
+    it('parses non-streaming DeepSeek tool call response', 0, () => {
+      const response = parseChatCompletionResponse('{"id":"chatcmpl-tool","created":2,"model":"deepseek-chat","choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","content":"","tool_calls":[{"id":"call_1","type":"function","function":{"name":"web_search","arguments":"{\\\"query\\\":\\\"DeepSeek API\\\",\\\"freshness\\\":\\\"week\\\"}"}}]}}],"usage":{"prompt_tokens":5,"completion_tokens":7,"total_tokens":12}}');
+      expect(response?.metadata.finishReason).assertEqual('tool_calls');
+      expect(response?.toolCalls.length).assertEqual(1);
+      expect(response?.toolCalls[0].function.name).assertEqual('web_search');
+      expect(response?.usage.totalTokens).assertEqual(12);
+    });
+
+    it('validates web_search arguments and builds compact tool messages', 0, () => {
+      const parsed = parseWebSearchArguments('{"query":" DeepSeek API latest ","freshness":"day"}');
+      expect(parsed.ok).assertTrue();
+      expect(parsed.arguments.query).assertEqual('DeepSeek API latest');
+      expect(parseWebSearchArguments('{bad json').ok).assertFalse();
+      expect(parseWebSearchArguments('{"query":"","freshness":"year"}').ok).assertFalse();
+
+      const results: SearchResult[] = [
+        { title: 'Docs', url: 'https://api-docs.deepseek.com/', snippet: 'DeepSeek API docs', publishedAt: '', source: 'DeepSeek' }
+      ];
+      const resultJson: string = createSearchToolResultJson(parsed.arguments.query, results);
+      expect(resultJson.indexOf('"results"') >= 0).assertTrue();
+      expect(resultJson.indexOf('"index":1') >= 0).assertTrue();
+      expect(createFailedToolResultJson('search_failed', 'no provider').indexOf('search_failed') >= 0).assertTrue();
+      expect(createToolCallRecord('msg_1', 'call_1', 'web_search', '{}', resultJson, 'success').messageId).assertEqual('msg_1');
     });
 
     it('builds markdown html with local renderer assets and math support', 0, () => {

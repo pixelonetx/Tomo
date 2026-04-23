@@ -26,6 +26,8 @@ export interface ChatCompletionRequest {
   stream_options?: StreamOptions;
   temperature?: number;
   max_tokens: number;
+  tools?: ApiToolDefinition[];
+  tool_choice?: string;
 }
 
 export interface StreamOptions {
@@ -47,6 +49,46 @@ export interface ResponseMetadata {
   created: number;
   systemFingerprint: string;
   finishReason: string;
+}
+
+export interface ApiToolDefinition {
+  type: string;
+  function: ApiToolFunction;
+}
+
+export interface ApiToolFunction {
+  name: string;
+  description: string;
+  parameters: ApiToolParameters;
+}
+
+export interface ApiToolParameters {
+  type: string;
+  properties: ApiToolParameterProperties;
+  required: string[];
+  additionalProperties: boolean;
+}
+
+export interface ApiToolParameterProperties {
+  query: ApiToolStringParameter;
+  freshness: ApiToolStringParameter;
+}
+
+export interface ApiToolStringParameter {
+  type: string;
+  description: string;
+  enum?: string[];
+}
+
+export interface ApiToolCall {
+  id: string;
+  type: string;
+  function: ApiToolCallFunction;
+}
+
+export interface ApiToolCallFunction {
+  name: string;
+  arguments: string;
 }
 
 export interface ModelInfo {
@@ -77,6 +119,7 @@ export interface ChatCompletionResponse {
   reasoningContent: string;
   metadata: ResponseMetadata;
   usage: UsageInfo;
+  toolCalls: ApiToolCall[];
 }
 
 export interface StreamCallback {

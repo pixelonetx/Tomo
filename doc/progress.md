@@ -122,6 +122,15 @@
   - 提供刷新和用系统默认浏览器打开两个操作。
   - Markdown 链接点击通过 `markdownBridge.openLink()` 回传 ArkTS，并推入 Navigation 内置浏览器页。
   - 新增 `BrowserService`，集中处理 URL 归一化和系统浏览器拉起。
+- 推进联网搜索 Tool Calls 基础层：
+  - 新增 `web_search` 工具 schema，按 strict 兼容风格声明 `query` / `freshness`、`required` 和 `additionalProperties: false`。
+  - 新增 `SearchToolService`，集中处理工具参数 JSON 校验、freshness 归一化、tool message 紧凑 JSON、失败 tool message 和工具调用记录创建。
+  - 新增 `SearchService` / `SearchProvider` 边界，后续可接 Tavily、Brave、Bing、Serper 等 provider。
+  - `normalizeSearchResults()` 增加空标题过滤，继续保持 URL 去重、snippet 截断和最多 5 条限制。
+  - `DeepSeekService` 增加非流式 `sendToolRound()` 和 `buildToolRequestBody()`，请求体支持 `tools` / `tool_choice=auto`。
+  - `DeepSeekService` 增加非流式 Chat Completion 响应解析，支持读取 `finish_reason=tool_calls`、assistant `tool_calls`、usage 和响应元数据。
+  - API message 转请求时支持保留 `tool_calls` 和 `tool_call_id`，为后续 `assistant(tool_calls) -> tool -> assistant(final)` transcript 铺路。
+  - 新增单元测试覆盖 web_search schema、工具参数校验、工具结果 JSON、非流式 tool_calls 响应解析和工具请求体构造。
 
 ### 验证
 
@@ -136,6 +145,6 @@
 
 ### 下一步
 
-1. 接入联网搜索 Tool Calls 的受控 `web_search` 循环。
-2. 继续推进 Reasoning 折叠展示和搜索来源详情。
-3. 补齐 Markdown 链接点击的外部浏览器跳转体验。
+1. 接入具体 Web Search provider（优先 Tavily 或 Brave）及搜索 API Key 设置。
+2. 在 `ChatViewModel` 中串起受控 `web_search` 工具循环，并把来源和 tool calls 持久化到最终 assistant 消息。
+3. 继续推进 Reasoning 折叠展示和搜索来源详情。

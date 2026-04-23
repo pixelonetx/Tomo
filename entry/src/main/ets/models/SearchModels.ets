@@ -4,6 +4,13 @@ export interface SearchOptions {
   freshness: string;
 }
 
+export enum SearchFreshness {
+  ANY = 'any',
+  DAY = 'day',
+  WEEK = 'week',
+  MONTH = 'month'
+}
+
 export interface SearchResult {
   title: string;
   url: string;
@@ -39,13 +46,14 @@ export function normalizeSearchResults(results: SearchResult[], maxResults: numb
 
   for (let i = 0; i < results.length && normalized.length < limit; i++) {
     const item: SearchResult = results[i];
+    const title: string = item.title.trim();
     const url: string = item.url.trim();
-    if (url.length === 0 || seen.indexOf(url) >= 0) {
+    if (title.length === 0 || url.length === 0 || seen.indexOf(url) >= 0) {
       continue;
     }
     seen.push(url);
     normalized.push({
-      title: item.title.trim(),
+      title: title,
       url: url,
       snippet: truncateSnippet(item.snippet),
       publishedAt: item.publishedAt,
