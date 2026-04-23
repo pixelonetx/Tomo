@@ -268,5 +268,28 @@ export default function localUnitTest() {
       expect(json.indexOf('"title": "Export / Chat"') >= 0).assertTrue();
       expect(json.indexOf('sk-') < 0).assertTrue();
     });
+
+    it('shows only active assistant branch versions', 0, () => {
+      const vm = new ChatViewModel();
+      const conversation: Conversation = createConversation('Branches');
+      const userMessage = createMessage(conversation.id, MessageRole.USER, 'draft');
+      const firstAssistant = createMessage(conversation.id, MessageRole.ASSISTANT, 'first');
+      firstAssistant.branchParentId = userMessage.id;
+      firstAssistant.branchIndex = 1;
+      firstAssistant.branchActive = false;
+      const secondAssistant = createMessage(conversation.id, MessageRole.ASSISTANT, 'second');
+      secondAssistant.branchParentId = userMessage.id;
+      secondAssistant.branchIndex = 2;
+      secondAssistant.branchActive = true;
+      conversation.messages = [userMessage, firstAssistant, secondAssistant];
+      vm.conversations = [conversation];
+      vm.currentConversationId = conversation.id;
+      vm.messages = conversation.messages;
+      const visible = vm.getVisibleMessages();
+      expect(visible.length).assertEqual(2);
+      expect(visible[1].content).assertEqual('second');
+      expect(vm.getAssistantBranchCount(secondAssistant)).assertEqual(2);
+      expect(vm.getAssistantBranchPosition(secondAssistant)).assertEqual(2);
+    });
   });
 }

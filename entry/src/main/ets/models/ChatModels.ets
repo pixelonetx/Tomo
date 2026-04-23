@@ -33,6 +33,9 @@ export class ChatMessage {
   reasoningTokens: number = 0;
   cacheHitTokens: number = 0;
   cacheMissTokens: number = 0;
+  branchParentId: string = '';
+  branchIndex: number = 0;
+  branchActive: boolean = true;
   createdAt: number = 0;
   updatedAt: number = 0;
   searchSources: SearchResult[] = [];

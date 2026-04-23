@@ -121,12 +121,12 @@ struct Index {
   @Builder
   private ChatLayer() {
     List() {
-      if (this.vm.messages.length === 0) {
+      if (this.vm.getVisibleMessages().length === 0) {
         ListItem() {
           this.EmptyState()
         }
       } else {
-        ForEach(this.vm.messages, (message: ChatMessage) => {
+        ForEach(this.vm.getVisibleMessages(), (message: ChatMessage) => {
           ListItem() {
             this.MessageRow(message)
           }
@@ -202,6 +202,38 @@ struct Index {
                 this.selectedMessageId = message.id;
                 this.showMessageDetailSheet = true;
               })
+          }
+          if (message.role === MessageRole.ASSISTANT && this.vm.getAssistantBranchCount(message) > 1) {
+            Row({ space: 8 }) {
+              Button('<')
+                .width(36)
+                .height(28)
+                .fontSize(12)
+                .fontColor($r('app.color.text_secondary'))
+                .backgroundColor(Color.Transparent)
+                .border({ width: 1, color: $r('app.color.divider') })
+                .borderRadius(8)
+                .onClick((): void => {
+                  this.vm.switchAssistantBranch(message.branchParentId, -1);
+                })
+              Text(`${this.vm.getAssistantBranchPosition(message)} / ${this.vm.getAssistantBranchCount(message)}`)
+                .fontSize(12)
+                .fontColor($r('app.color.text_secondary'))
+                .textAlign(TextAlign.Center)
+                .width(48)
+              Button('>')
+                .width(36)
+                .height(28)
+                .fontSize(12)
+                .fontColor($r('app.color.text_secondary'))
+                .backgroundColor(Color.Transparent)
+                .border({ width: 1, color: $r('app.color.divider') })
+                .borderRadius(8)
+                .onClick((): void => {
+                  this.vm.switchAssistantBranch(message.branchParentId, 1);
+                })
+            }
+            .width('100%')
           }
         }
         .width('100%')

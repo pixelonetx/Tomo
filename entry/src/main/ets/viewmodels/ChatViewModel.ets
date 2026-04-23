@@ -305,15 +305,22 @@ export class ChatViewModel {
     this.errorMessage = '';
     this.updateCurrentConversation(content);
     await this.persistMessage(userMessage);
-    await this.startAssistantReply();
+    await this.startAssistantReply(userMessage.id);
   }
 
-  private async startAssistantReply(): Promise<void> {
+  private async startAssistantReply(parentUserMessageId?: string): Promise<void> {
     if (this.messages.length === 0) {
       return;
     }
     const conversationId: string = this.ensureConversation();
     const assistantMessage: ChatMessage = createMessage(conversationId, MessageRole.ASSISTANT, '');
+    const parentId: string = parentUserMessageId === undefined ? this.findLastVisibleUserMessageId() : parentUserMessageId;
+    if (parentId.length > 0) {
+      assistantMessage.branchParentId = parentId;
+      assistantMessage.branchIndex = this.getNextAssistantBranchIndex(parentId);
+      assistantMessage.branchActive = true;
+      await this.deactivateAssistantBranches(parentId);
+    }
     assistantMessage.status = SendStatus.SENDING;
     this.messages = this.messages.concat([assistantMessage]);
     this.isLoading = true;
@@ -359,7 +366,7 @@ export class ChatViewModel {
     this.messages = updated;
     this.syncCurrentMessages();
     await this.persistDeleteMessages(removedIds);
-    await this.startAssistantReply();
+    await this.startAssistantReply(id);
   }
 
   async regenerateAssistantMessage(id: string): Promise<void> {
@@ -380,10 +387,12 @@ export class ChatViewModel {
     if (userIndex < 0) {
       return;
     }
+    const parentId: string = this.messages[userIndex].id;
+    const keepUntil: number = this.findBranchGroupEndIndex(parentId);
     const updated: ChatMessage[] = [];
     const removedIds: string[] = [];
     for (let i = 0; i < this.messages.length; i++) {
-      if (i <= userIndex) {
+      if (i <= keepUntil) {
         updated.push(this.messages[i]);
       } else {
         removedIds.push(this.messages[i].id);
@@ -392,7 +401,7 @@ export class ChatViewModel {
     this.messages = updated;
     this.syncCurrentMessages();
     await this.persistDeleteMessages(removedIds);
-    await this.startAssistantReply();
+    await this.startAssistantReply(parentId);
   }
 
   async branchConversationFromMessage(id: string): Promise<void> {
@@ -403,21 +412,13 @@ export class ChatViewModel {
     if (targetIndex < 0) {
       return;
     }
-    const current: Conversation | null = this.findConversation(this.currentConversationId);
-    const branchTitle: string = current === null ? 'Branch' : `${current.title} branch`;
-    const branch: Conversation = createConversation(createConversationTitle(branchTitle));
-    const copiedMessages: ChatMessage[] = [];
-    for (let i = 0; i <= targetIndex; i++) {
-      copiedMessages.push(this.cloneMessageForConversation(this.messages[i], branch.id));
+    const target: ChatMessage = this.messages[targetIndex];
+    if (target.role === MessageRole.USER) {
+      await this.regenerateFromUserBranch(target.id);
+      return;
     }
-    branch.messages = copiedMessages;
-    branch.updatedAt = Date.now();
-    this.conversations = [branch].concat(this.conversations);
-    this.currentConversationId = branch.id;
-    this.messages = copiedMessages;
-    await this.persistConversation(branch);
-    for (let i = 0; i < copiedMessages.length; i++) {
-      await this.persistMessage(copiedMessages[i]);
+    if (target.role === MessageRole.ASSISTANT && target.branchParentId.length > 0) {
+      await this.regenerateAssistantMessage(target.id);
     }
   }
 
@@ -434,6 +435,49 @@ export class ChatViewModel {
     for (let i = 0; i < this.messages.length; i++) {
       if (i <= targetIndex) {
         updated.push(this.messages[i]);
+      } else {
+        removedIds.push(this.messages[i].id);
+      }
+    }
+    this.messages = updated;
+    this.syncCurrentMessages();
+    await this.persistDeleteMessages(removedIds);
+  }
+
+  async switchAssistantBranch(parentUserMessageId: string, step: number): Promise<void> {
+    if (this.isLoading) {
+      return;
+    }
+    const siblings: ChatMessage[] = this.getAssistantBranches(parentUserMessageId);
+    if (siblings.length <= 1) {
+      return;
+    }
+    let activeIndex: number = 0;
+    for (let i = 0; i < siblings.length; i++) {
+      if (siblings[i].branchActive) {
+        activeIndex = i;
+        break;
+      }
+    }
+    let nextIndex: number = activeIndex + step;
+    if (nextIndex < 0) {
+      nextIndex = siblings.length - 1;
+    }
+    if (nextIndex >= siblings.length) {
+      nextIndex = 0;
+    }
+    const groupEnd: number = this.findBranchGroupEndIndex(parentUserMessageId);
+    const updated: ChatMessage[] = [];
+    const removedIds: string[] = [];
+    for (let i = 0; i < this.messages.length; i++) {
+      if (i <= groupEnd) {
+        const message: ChatMessage = this.messages[i];
+        if (message.branchParentId === parentUserMessageId && message.role === MessageRole.ASSISTANT) {
+          message.branchActive = message.id === siblings[nextIndex].id;
+          message.updatedAt = Date.now();
+          await this.persistMessage(message);
+        }
+        updated.push(message);
       } else {
         removedIds.push(this.messages[i].id);
       }
@@ -745,6 +789,38 @@ export class ChatViewModel {
     return conversation.title;
   }
 
+  getVisibleMessages(): ChatMessage[] {
+    const visible: ChatMessage[] = [];
+    for (let i = 0; i < this.messages.length; i++) {
+      const message: ChatMessage = this.messages[i];
+      if (message.role === MessageRole.ASSISTANT && message.branchParentId.length > 0 && !message.branchActive) {
+        continue;
+      }
+      visible.push(message);
+    }
+    return visible;
+  }
+
+  getAssistantBranchCount(message: ChatMessage): number {
+    if (message.branchParentId.length === 0) {
+      return 1;
+    }
+    return this.getAssistantBranches(message.branchParentId).length;
+  }
+
+  getAssistantBranchPosition(message: ChatMessage): number {
+    if (message.branchParentId.length === 0) {
+      return 1;
+    }
+    const siblings: ChatMessage[] = this.getAssistantBranches(message.branchParentId);
+    for (let i = 0; i < siblings.length; i++) {
+      if (siblings[i].id === message.id) {
+        return i + 1;
+      }
+    }
+    return 1;
+  }
+
   getProviderStatusText(): string {
     const deepSeekStatus: string = this.apiKeyConfigured ? 'DeepSeek configured' : 'DeepSeek missing';
     const searchStatus: string = this.searchApiKeyConfigured ? 'Tavily configured' : 'Tavily missing';
@@ -766,7 +842,7 @@ export class ChatViewModel {
   getCurrentConversationMarkdown(): string {
     const conversation: Conversation | null = this.findConversation(this.currentConversationId);
     const title: string = conversation === null ? 'New chat' : conversation.title;
-    const messages: ChatMessage[] = conversation === null ? this.messages : conversation.messages;
+    const messages: ChatMessage[] = this.onlyActiveBranchMessages(conversation === null ? this.messages : conversation.messages);
     const lines: string[] = [];
     lines.push(`# ${title}`);
     lines.push('');
@@ -946,11 +1022,23 @@ export class ChatViewModel {
   }
 
   private toApiMessages(messages: ChatMessage[]): ApiMessage[] {
-    return this.toBudgetedApiMessages(messages, true);
+    return this.toBudgetedApiMessages(this.onlyActiveBranchMessages(messages), true);
   }
 
   private toApiMessagesForNewUserRound(messages: ChatMessage[]): ApiMessage[] {
-    return this.toBudgetedApiMessages(messages, false);
+    return this.toBudgetedApiMessages(this.onlyActiveBranchMessages(messages), false);
+  }
+
+  private onlyActiveBranchMessages(messages: ChatMessage[]): ChatMessage[] {
+    const active: ChatMessage[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const message: ChatMessage = messages[i];
+      if (message.role === MessageRole.ASSISTANT && message.branchParentId.length > 0 && !message.branchActive) {
+        continue;
+      }
+      active.push(message);
+    }
+    return active;
   }
 
   private toBudgetedApiMessages(messages: ChatMessage[], includeReasoning: boolean): ApiMessage[] {
@@ -984,8 +1072,9 @@ export class ChatViewModel {
 
   private estimateContextChars(messages: ChatMessage[]): number {
     let chars: number = 0;
-    for (let i = 0; i < messages.length; i++) {
-      const message: ChatMessage = messages[i];
+    const activeMessages: ChatMessage[] = this.onlyActiveBranchMessages(messages);
+    for (let i = 0; i < activeMessages.length; i++) {
+      const message: ChatMessage = activeMessages[i];
       if (message.status === SendStatus.FAILED || message.status === SendStatus.CANCELED || message.status === SendStatus.SENDING) {
         continue;
       }
@@ -1021,6 +1110,89 @@ export class ChatViewModel {
     return -1;
   }
 
+  private findLastVisibleUserMessageId(): string {
+    const visible: ChatMessage[] = this.getVisibleMessages();
+    for (let i = visible.length - 1; i >= 0; i--) {
+      if (visible[i].role === MessageRole.USER) {
+        return visible[i].id;
+      }
+    }
+    return '';
+  }
+
+  private getAssistantBranches(parentUserMessageId: string): ChatMessage[] {
+    const siblings: ChatMessage[] = [];
+    for (let i = 0; i < this.messages.length; i++) {
+      const message: ChatMessage = this.messages[i];
+      if (message.role === MessageRole.ASSISTANT && message.branchParentId === parentUserMessageId) {
+        siblings.push(message);
+      }
+    }
+    return siblings;
+  }
+
+  private getNextAssistantBranchIndex(parentUserMessageId: string): number {
+    const siblings: ChatMessage[] = this.getAssistantBranches(parentUserMessageId);
+    let maxIndex: number = 0;
+    for (let i = 0; i < siblings.length; i++) {
+      if (siblings[i].branchIndex > maxIndex) {
+        maxIndex = siblings[i].branchIndex;
+      }
+    }
+    return maxIndex + 1;
+  }
+
+  private async deactivateAssistantBranches(parentUserMessageId: string): Promise<void> {
+    const updated: ChatMessage[] = this.messages.slice();
+    for (let i = 0; i < updated.length; i++) {
+      const message: ChatMessage = updated[i];
+      if (message.role === MessageRole.ASSISTANT && message.branchParentId === parentUserMessageId && message.branchActive) {
+        message.branchActive = false;
+        message.updatedAt = Date.now();
+        await this.persistMessage(message);
+      }
+    }
+    this.messages = updated;
+    this.syncCurrentMessages();
+  }
+
+  private findBranchGroupEndIndex(parentUserMessageId: string): number {
+    const userIndex: number = this.findMessageIndex(parentUserMessageId);
+    if (userIndex < 0) {
+      return -1;
+    }
+    let endIndex: number = userIndex;
+    for (let i = userIndex + 1; i < this.messages.length; i++) {
+      const message: ChatMessage = this.messages[i];
+      if (message.role === MessageRole.ASSISTANT && message.branchParentId === parentUserMessageId) {
+        endIndex = i;
+        continue;
+      }
+      break;
+    }
+    return endIndex;
+  }
+
+  private async regenerateFromUserBranch(parentUserMessageId: string): Promise<void> {
+    const groupEnd: number = this.findBranchGroupEndIndex(parentUserMessageId);
+    if (groupEnd < 0) {
+      return;
+    }
+    const updated: ChatMessage[] = [];
+    const removedIds: string[] = [];
+    for (let i = 0; i < this.messages.length; i++) {
+      if (i <= groupEnd) {
+        updated.push(this.messages[i]);
+      } else {
+        removedIds.push(this.messages[i].id);
+      }
+    }
+    this.messages = updated;
+    this.syncCurrentMessages();
+    await this.persistDeleteMessages(removedIds);
+    await this.startAssistantReply(parentUserMessageId);
+  }
+
   private cloneMessageForConversation(message: ChatMessage, conversationId: string): ChatMessage {
     const cloned: ChatMessage = createMessage(conversationId, message.role, message.content);
     cloned.reasoningContent = message.reasoningContent;
@@ -1036,6 +1208,9 @@ export class ChatViewModel {
     cloned.reasoningTokens = message.reasoningTokens;
     cloned.cacheHitTokens = message.cacheHitTokens;
     cloned.cacheMissTokens = message.cacheMissTokens;
+    cloned.branchParentId = message.branchParentId;
+    cloned.branchIndex = message.branchIndex;
+    cloned.branchActive = message.branchActive;
     cloned.searchSources = message.searchSources.slice();
     const toolCalls: ToolCallRecord[] = [];
     for (let i = 0; i < message.toolCalls.length; i++) {

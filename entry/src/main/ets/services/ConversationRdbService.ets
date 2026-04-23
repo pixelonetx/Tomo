@@ -5,7 +5,7 @@ import { ChatMessage, Conversation, MessageRole, SendStatus } from '../models/Ch
 import { SearchResult, ToolCallRecord } from '../models/SearchModels';
 
 const DB_NAME: string = 'deepseek_chat.db';
-const DB_VERSION: number = 1;
+const DB_VERSION: number = 2;
 
 const SQL_CREATE_CONVERSATIONS: string =
   'CREATE TABLE IF NOT EXISTS conversations (' +
@@ -34,6 +34,9 @@ const SQL_CREATE_MESSAGES: string =
     'reasoning_tokens INTEGER NOT NULL DEFAULT 0,' +
     'cache_hit_tokens INTEGER NOT NULL DEFAULT 0,' +
     'cache_miss_tokens INTEGER NOT NULL DEFAULT 0,' +
+    'branch_parent_id TEXT NOT NULL DEFAULT \'\',' +
+    'branch_index INTEGER NOT NULL DEFAULT 0,' +
+    'branch_active INTEGER NOT NULL DEFAULT 1,' +
     'created_at INTEGER NOT NULL,' +
     'updated_at INTEGER NOT NULL' +
   ')';
@@ -118,8 +121,8 @@ export class ConversationRdbService {
       store,
       'INSERT OR REPLACE INTO messages (' +
         'id, conversation_id, role, content, reasoning_content, status, error_message, response_id, model, finish_reason, system_fingerprint, ' +
-        'prompt_tokens, completion_tokens, total_tokens, reasoning_tokens, cache_hit_tokens, cache_miss_tokens, created_at, updated_at' +
-      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'prompt_tokens, completion_tokens, total_tokens, reasoning_tokens, cache_hit_tokens, cache_miss_tokens, branch_parent_id, branch_index, branch_active, created_at, updated_at' +
+      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       this.messageArgs(message)
     );
     await this.replaceMessageDetails(message);
@@ -132,7 +135,7 @@ export class ConversationRdbService {
       'UPDATE messages SET ' +
         'conversation_id = ?, role = ?, content = ?, reasoning_content = ?, status = ?, error_message = ?, response_id = ?, model = ?, ' +
         'finish_reason = ?, system_fingerprint = ?, prompt_tokens = ?, completion_tokens = ?, total_tokens = ?, reasoning_tokens = ?, ' +
-        'cache_hit_tokens = ?, cache_miss_tokens = ?, created_at = ?, updated_at = ? WHERE id = ?',
+        'cache_hit_tokens = ?, cache_miss_tokens = ?, branch_parent_id = ?, branch_index = ?, branch_active = ?, created_at = ?, updated_at = ? WHERE id = ?',
       [
         message.conversationId,
         message.role,
@@ -150,6 +153,9 @@ export class ConversationRdbService {
         message.reasoningTokens,
         message.cacheHitTokens,
         message.cacheMissTokens,
+        message.branchParentId,
+        message.branchIndex,
+        message.branchActive ? 1 : 0,
         message.createdAt,
         message.updatedAt,
         message.id
@@ -235,6 +241,9 @@ export class ConversationRdbService {
         message.reasoningTokens = resultSet.getLong(resultSet.getColumnIndex('reasoning_tokens'));
         message.cacheHitTokens = resultSet.getLong(resultSet.getColumnIndex('cache_hit_tokens'));
         message.cacheMissTokens = resultSet.getLong(resultSet.getColumnIndex('cache_miss_tokens'));
+        message.branchParentId = resultSet.getString(resultSet.getColumnIndex('branch_parent_id'));
+        message.branchIndex = resultSet.getLong(resultSet.getColumnIndex('branch_index'));
+        message.branchActive = resultSet.getLong(resultSet.getColumnIndex('branch_active')) === 1;
         message.createdAt = resultSet.getLong(resultSet.getColumnIndex('created_at'));
         message.updatedAt = resultSet.getLong(resultSet.getColumnIndex('updated_at'));
         message.searchSources = await this.loadSearchSources(message.id);
@@ -361,6 +370,9 @@ export class ConversationRdbService {
       message.reasoningTokens,
       message.cacheHitTokens,
       message.cacheMissTokens,
+      message.branchParentId,
+      message.branchIndex,
+      message.branchActive ? 1 : 0,
       message.createdAt,
       message.updatedAt
     ];
@@ -388,6 +400,7 @@ export class ConversationRdbService {
     await this.executeSql(store, SQL_CREATE_MESSAGE_INDEX);
     await this.executeSql(store, SQL_CREATE_TOOL_CALLS);
     await this.executeSql(store, SQL_CREATE_SEARCH_SOURCES);
+    await this.migrateSchema(store);
     try {
       store.version = DB_VERSION;
     } catch (err) {
@@ -400,6 +413,19 @@ export class ConversationRdbService {
       throw new Error('ConversationRdbService must be initialized before use.');
     }
     return this.store;
+  }
+
+  private async migrateSchema(store: relationalStore.RdbStore): Promise<void> {
+    await this.executeOptionalSql(store, 'ALTER TABLE messages ADD COLUMN branch_parent_id TEXT NOT NULL DEFAULT \'\'');
+    await this.executeOptionalSql(store, 'ALTER TABLE messages ADD COLUMN branch_index INTEGER NOT NULL DEFAULT 0');
+    await this.executeOptionalSql(store, 'ALTER TABLE messages ADD COLUMN branch_active INTEGER NOT NULL DEFAULT 1');
+  }
+
+  private async executeOptionalSql(store: relationalStore.RdbStore, sql: string): Promise<void> {
+    try {
+      await store.execute(sql);
+    } catch (_err) {
+    }
   }
 
   private toMessageRole(value: string): MessageRole {
