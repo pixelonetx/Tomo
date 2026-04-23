@@ -10,3 +10,6 @@ export const MAX_RECENT_MESSAGES: number = 24;
 export const MAX_MESSAGE_CHARS: number = 12000;
 export const MAX_SEARCH_RESULTS_PER_CALL: number = 5;
 export const MAX_TOOL_ROUNDS: number = 3;
+export const MAX_TOOL_CALLS_PER_ROUND: number = 2;
+export const TAVILY_SEARCH_ENDPOINT: string = 'https://api.tavily.com/search';
+export const SEARCH_REQUEST_TIMEOUT: number = 60000;

@@ -12,6 +12,7 @@ import {
   createSearchToolResultJson,
   createToolCallRecord,
   createWebSearchToolDefinition,
+  parseTavilySearchResponse,
   parseWebSearchArguments
 } from '../main/ets/services/SearchToolService';
 import { buildMarkdownHtml, estimateMarkdownHeight, normalizeTaskListMarkers, toScriptString } from '../main/ets/shared/MarkdownHtmlRenderer';
@@ -160,6 +161,14 @@ export default function localUnitTest() {
       expect(resultJson.indexOf('"index":1') >= 0).assertTrue();
       expect(createFailedToolResultJson('search_failed', 'no provider').indexOf('search_failed') >= 0).assertTrue();
       expect(createToolCallRecord('msg_1', 'call_1', 'web_search', '{}', resultJson, 'success').messageId).assertEqual('msg_1');
+    });
+
+    it('parses Tavily search results into normalized sources', 0, () => {
+      const results = parseTavilySearchResponse('{"results":[{"title":"DeepSeek Docs","url":"https://api-docs.deepseek.com/news","content":"Latest API docs","published_date":"2026-04-01"},{"title":"","url":"https://example.com/empty","content":"skip"}]}', 5);
+      expect(results.length).assertEqual(1);
+      expect(results[0].title).assertEqual('DeepSeek Docs');
+      expect(results[0].snippet).assertEqual('Latest API docs');
+      expect(results[0].source).assertEqual('api-docs.deepseek.com');
     });
 
     it('builds markdown html with local renderer assets and math support', 0, () => {

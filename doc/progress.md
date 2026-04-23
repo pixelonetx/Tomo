@@ -131,6 +131,26 @@
   - `DeepSeekService` 增加非流式 Chat Completion 响应解析，支持读取 `finish_reason=tool_calls`、assistant `tool_calls`、usage 和响应元数据。
   - API message 转请求时支持保留 `tool_calls` 和 `tool_call_id`，为后续 `assistant(tool_calls) -> tool -> assistant(final)` transcript 铺路。
   - 新增单元测试覆盖 web_search schema、工具参数校验、工具结果 JSON、非流式 tool_calls 响应解析和工具请求体构造。
+- 接通联网搜索第一版闭环：
+  - 新增 Tavily Search provider，使用 `POST https://api.tavily.com/search` 和 Bearer API Key。
+  - Tavily 请求使用 basic search、最多 5 条结果、禁用 raw content / images，只返回适合 LLM tool message 的轻量搜索结果。
+  - Tavily 响应解析为统一 `SearchResult`，保留 title、url、content snippet、published date 和 URL host source。
+  - Preferences 增加 Search API Key 的保存、读取和清除，继续维护 `searchApiKeyConfigured`。
+  - API Key sheet 增加 Tavily Search Key 输入、保存和清除。
+  - 侧边栏 API Key 入口根据 DeepSeek / Search Key 配置状态显示。
+  - `ChatViewModel` 中联网开关开启时走受控 Tool Calls 循环：
+    - 初始请求传 `tools=[web_search]` 和 `tool_choice=auto`。
+    - 处理 `assistant(tool_calls)`。
+    - 执行 Tavily `web_search`。
+    - 追加 `tool(tool_call_id, content)`。
+    - 继续请求直到获得最终 assistant answer。
+  - 工具循环限制为最多 3 轮、每轮最多 2 个 tool call。
+  - 工具参数非法、未授权工具名、provider 失败和超出单轮 tool call 数都会生成失败 tool message，不直接破坏 transcript。
+  - Reasoner 工具回合内部保留本回合 `reasoning_content`，新用户回合历史仍清理旧 reasoning。
+  - 最终 assistant 消息保存 search sources 和 tool call records，RDB 继续增量持久化。
+  - 主消息流在回答底部显示来源数量，消息详情展示来源列表并支持复制。
+  - 普通非联网聊天仍保持原 SSE 流式路径；联网聊天第一版使用非流式工具闭环，后续可把最终回答恢复为流式。
+  - 新增单元测试覆盖 Tavily 响应解析。
 
 ### 验证
 
@@ -145,6 +165,6 @@
 
 ### 下一步
 
-1. 接入具体 Web Search provider（优先 Tavily 或 Brave）及搜索 API Key 设置。
-2. 在 `ChatViewModel` 中串起受控 `web_search` 工具循环，并把来源和 tool calls 持久化到最终 assistant 消息。
-3. 继续推进 Reasoning 折叠展示和搜索来源详情。
+1. 将联网工具闭环的最终回答改为流式输出，并保留 tool_calls transcript。
+2. 继续推进 Reasoning 折叠展示和更完整的搜索来源详情交互。
+3. 增加 Search API Key 连通性检查和 provider 错误文案细分。

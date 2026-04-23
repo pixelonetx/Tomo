@@ -164,6 +164,11 @@ struct Index {
               .fontSize(Math.max(this.vm.fontSize - 2, 12))
               .fontColor($r('app.color.text_secondary'))
           }
+          if (message.searchSources.length > 0) {
+            Text(`Sources ${message.searchSources.length}`)
+              .fontSize(12)
+              .fontColor($r('app.color.text_secondary'))
+          }
         }
         .width('100%')
       }
@@ -392,7 +397,7 @@ struct Index {
         .layoutWeight(1)
         .scrollBar(BarState.Off)
 
-        Button(this.vm.apiKeyConfigured ? 'API Key configured' : 'Set API Key')
+        Button(this.getApiKeyButtonText())
           .width('100%')
           .height(40)
           .fontColor($r('app.color.text_primary'))
@@ -438,19 +443,25 @@ struct Index {
   private ApiKeySheetContent() {
     Column({ space: 18 }) {
       Column({ space: 6 }) {
-        Text('DeepSeek API Key')
+        Text('API Keys')
           .fontSize(20)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.text_primary'))
           .width('100%')
 
-        Text('Saved locally in this app sandbox via Preferences for the first version. Move to system secure storage is planned before broader release.')
+        Text('Saved locally in this app sandbox via Preferences for the first version. DeepSeek powers chat; Tavily powers web search.')
           .fontSize(13)
           .fontColor($r('app.color.text_secondary'))
           .lineHeight(19)
           .width('100%')
       }
       .width('100%')
+
+      Text('DeepSeek')
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .width('100%')
 
       TextInput({ placeholder: 'sk-...', text: this.vm.apiKeyDraft })
         .type(InputType.Password)
@@ -505,6 +516,50 @@ struct Index {
           .onClick((): void => {
             this.vm.saveApiKey(this.vm.apiKeyDraft);
             this.showApiKeySheet = false;
+          })
+      }
+      .width('100%')
+
+      Text('Tavily Search')
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .width('100%')
+
+      TextInput({ placeholder: 'tvly-...', text: this.vm.searchApiKeyDraft })
+        .type(InputType.Password)
+        .fontSize(15)
+        .fontColor($r('app.color.text_primary'))
+        .placeholderColor($r('app.color.text_placeholder'))
+        .backgroundColor($r('app.color.input_bar_background'))
+        .border({ width: 1, color: $r('app.color.input_border') })
+        .borderRadius(10)
+        .height(46)
+        .padding({ left: 12, right: 12 })
+        .onChange((value: string): void => {
+          this.vm.searchApiKeyDraft = value;
+        })
+
+      Row({ space: 10 }) {
+        Button('Clear search')
+          .layoutWeight(1)
+          .height(42)
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor(Color.Transparent)
+          .border({ width: 1, color: $r('app.color.divider') })
+          .borderRadius(10)
+          .onClick((): void => {
+            this.vm.clearSearchApiKey();
+          })
+
+        Button('Save search')
+          .layoutWeight(1)
+          .height(42)
+          .fontColor($r('app.color.text_on_primary'))
+          .backgroundColor($r('app.color.button_primary'))
+          .borderRadius(10)
+          .onClick((): void => {
+            this.vm.saveSearchApiKey(this.vm.searchApiKeyDraft);
           })
       }
       .width('100%')
@@ -624,6 +679,14 @@ struct Index {
       this.DetailRow('Reasoning tokens', this.getSelectedMessageReasoningTokens())
       this.DetailRow('Total tokens', this.getSelectedMessageTotalTokens())
       this.DetailRow('Cache hit / miss', this.getSelectedMessageCacheTokens())
+      this.DetailRow('Sources', this.getSelectedMessageSourceCount())
+      if (this.getSelectedMessageSourceCount() !== '0') {
+        Text(this.getSelectedMessageSourcesText())
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+          .lineHeight(18)
+          .width('100%')
+      }
 
       Row({ space: 10 }) {
         Button('Copy message')
@@ -673,6 +736,16 @@ struct Index {
 
   private getCurrentTitle(): string {
     return this.vm.getCurrentTitle();
+  }
+
+  private getApiKeyButtonText(): string {
+    if (this.vm.apiKeyConfigured && this.vm.searchApiKeyConfigured) {
+      return 'API Keys configured';
+    }
+    if (this.vm.apiKeyConfigured) {
+      return 'Set Search Key';
+    }
+    return 'Set API Key';
   }
 
   private copyText(text: string): void {
@@ -810,6 +883,30 @@ struct Index {
     return `${message.cacheHitTokens} / ${message.cacheMissTokens}`;
   }
 
+  private getSelectedMessageSourceCount(): string {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null) {
+      return '0';
+    }
+    return `${message.searchSources.length}`;
+  }
+
+  private getSelectedMessageSourcesText(): string {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null || message.searchSources.length === 0) {
+      return '';
+    }
+    let text: string = '';
+    for (let i = 0; i < message.searchSources.length; i++) {
+      const source = message.searchSources[i];
+      text += `[${i + 1}] ${source.title}\n${source.url}`;
+      if (i < message.searchSources.length - 1) {
+        text += '\n\n';
+      }
+    }
+    return text;
+  }
+
   private getSelectedMessageDetailsText(): string {
     return `Role: ${this.getSelectedMessageRole()}\n` +
       `Status: ${this.getSelectedMessageStatus()}\n` +
@@ -820,7 +917,9 @@ struct Index {
       `Completion tokens: ${this.getSelectedMessageCompletionTokens()}\n` +
       `Reasoning tokens: ${this.getSelectedMessageReasoningTokens()}\n` +
       `Total tokens: ${this.getSelectedMessageTotalTokens()}\n` +
-      `Cache hit / miss: ${this.getSelectedMessageCacheTokens()}`;
+      `Cache hit / miss: ${this.getSelectedMessageCacheTokens()}\n` +
+      `Sources: ${this.getSelectedMessageSourceCount()}\n\n` +
+      this.getSelectedMessageSourcesText();
   }
 
   private getOpenSourceNoticesText(): string {

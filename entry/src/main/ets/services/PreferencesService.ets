@@ -16,6 +16,7 @@ export enum PreferenceKey {
   BACKGROUND_OPACITY = 'backgroundOpacity',
   WEB_SEARCH_DEFAULT_ENABLED = 'webSearchDefaultEnabled',
   SEARCH_PROVIDER = 'searchProvider',
+  SEARCH_API_KEY = 'searchApiKey',
   SEARCH_API_KEY_CONFIGURED = 'searchApiKeyConfigured',
   SEARCH_MAX_RESULTS = 'searchMaxResults'
 }
@@ -126,6 +127,34 @@ export class PreferencesService {
       store.putSync(PreferenceKey.SEARCH_API_KEY_CONFIGURED, configured);
     } catch (err) {
       throw new Error('Failed to write search api key status.');
+    }
+    await this.flushStore(store);
+  }
+
+  getSearchApiKey(): string {
+    const store = this.requireStore();
+    return this.getString(store, PreferenceKey.SEARCH_API_KEY, '');
+  }
+
+  async saveSearchApiKey(key: string): Promise<void> {
+    const store = this.requireStore();
+    const cleanKey: string = key.trim();
+    try {
+      store.putSync(PreferenceKey.SEARCH_API_KEY, cleanKey);
+      store.putSync(PreferenceKey.SEARCH_API_KEY_CONFIGURED, cleanKey.length > 0);
+    } catch (err) {
+      throw new Error('Failed to write search api key.');
+    }
+    await this.flushStore(store);
+  }
+
+  async clearSearchApiKey(): Promise<void> {
+    const store = this.requireStore();
+    try {
+      store.deleteSync(PreferenceKey.SEARCH_API_KEY);
+      store.putSync(PreferenceKey.SEARCH_API_KEY_CONFIGURED, false);
+    } catch (err) {
+      throw new Error('Failed to clear search api key.');
     }
     await this.flushStore(store);
   }

@@ -1,5 +1,5 @@
 import { common } from '@kit.AbilityKit';
-import { ApiMessage, ModelInfo, ModelListResponse, ModelMode, ResponseMetadata, UsageInfo } from '../models/ApiModels';
+import { ApiMessage, ApiToolCall, ChatCompletionResponse, ModelInfo, ModelListResponse, ModelMode, ResponseMetadata, UsageInfo } from '../models/ApiModels';
 import {
   ChatMessage,
   Conversation,
@@ -10,9 +10,22 @@ import {
   createMessage
 } from '../models/ChatModels';
 import { AppSettings, createDefaultSettings } from '../models/SettingsModels';
+import { SearchOptions, SearchResult, ToolCallRecord } from '../models/SearchModels';
 import { ConversationService } from '../services/ConversationService';
 import { DeepSeekService } from '../services/DeepSeekService';
 import { PreferencesService } from '../services/PreferencesService';
+import {
+  ParsedWebSearchArguments,
+  SearchService,
+  TavilySearchProvider,
+  WEB_SEARCH_TOOL_NAME,
+  createFailedToolResultJson,
+  createSearchToolResultJson,
+  createToolCallRecord,
+  createWebSearchToolDefinition,
+  parseWebSearchArguments
+} from '../services/SearchToolService';
+import { MAX_SEARCH_RESULTS_PER_CALL, MAX_TOOL_CALLS_PER_ROUND, MAX_TOOL_ROUNDS } from '../shared/Constants';
 
 @Observed
 export class ChatViewModel {
@@ -31,12 +44,16 @@ export class ChatViewModel {
   backgroundBlurRadius: number = 20;
   apiKeyConfigured: boolean = false;
   apiKeyDraft: string = '';
+  searchApiKeyConfigured: boolean = false;
+  searchApiKeyDraft: string = '';
   settingsMessage: string = '';
 
   private initialized: boolean = false;
   private settings: AppSettings = createDefaultSettings();
   private preferencesService: PreferencesService = new PreferencesService();
   private deepSeekService: DeepSeekService = new DeepSeekService();
+  private tavilySearchProvider: TavilySearchProvider = new TavilySearchProvider();
+  private searchService: SearchService = new SearchService();
   private conversationService: ConversationService = new ConversationService();
   private lastAssistantPersistAt: number = 0;
 
@@ -57,6 +74,8 @@ export class ChatViewModel {
     }
     this.applySettings(this.settings);
     this.restoreApiKey();
+    this.restoreSearchApiKey();
+    this.searchService.setProvider(this.tavilySearchProvider);
     try {
       await this.conversationService.init(context);
       this.conversations = await this.conversationService.loadConversations();
@@ -98,6 +117,35 @@ export class ChatViewModel {
       this.settingsMessage = 'API Key cleared.';
     } catch (err) {
       this.settingsMessage = 'API Key 清除失败，请稍后重试。';
+    }
+  }
+
+  setSearchApiKey(key: string): void {
+    this.tavilySearchProvider.setApiKey(key);
+    this.searchApiKeyDraft = key;
+    this.searchApiKeyConfigured = key.trim().length > 0;
+  }
+
+  async saveSearchApiKey(key: string): Promise<void> {
+    const cleanKey: string = key.trim();
+    this.setSearchApiKey(cleanKey);
+    try {
+      await this.preferencesService.saveSearchApiKey(cleanKey);
+      this.settings.searchApiKeyConfigured = cleanKey.length > 0;
+      this.settingsMessage = cleanKey.length > 0 ? 'Search API Key saved.' : 'Search API Key cleared.';
+    } catch (err) {
+      this.settingsMessage = '搜索 API Key 保存失败，请稍后重试。';
+    }
+  }
+
+  async clearSearchApiKey(): Promise<void> {
+    this.setSearchApiKey('');
+    try {
+      await this.preferencesService.clearSearchApiKey();
+      this.settings.searchApiKeyConfigured = false;
+      this.settingsMessage = 'Search API Key cleared.';
+    } catch (err) {
+      this.settingsMessage = '搜索 API Key 清除失败，请稍后重试。';
     }
   }
 
@@ -181,26 +229,131 @@ export class ChatViewModel {
     await this.persistMessage(userMessage);
     await this.persistMessage(assistantMessage);
 
+    if (this.webSearchEnabled) {
+      await this.sendMessageWithSearch(assistantMessage.id);
+      return;
+    }
+
+    await this.sendMessageWithoutSearch(assistantMessage.id);
+  }
+
+  private async sendMessageWithoutSearch(assistantMessageId: string): Promise<void> {
     await this.deepSeekService.sendStreamChat(this.toApiMessages(this.messages), this.modelMode, {
       onContent: (chunk: string): void => {
-        this.appendAssistantContent(assistantMessage.id, chunk);
+        this.appendAssistantContent(assistantMessageId, chunk);
       },
       onReasoning: (chunk: string): void => {
-        this.appendAssistantReasoning(assistantMessage.id, chunk);
+        this.appendAssistantReasoning(assistantMessageId, chunk);
       },
       onMetadata: (metadata: ResponseMetadata): void => {
-        this.updateAssistantMetadata(assistantMessage.id, metadata);
+        this.updateAssistantMetadata(assistantMessageId, metadata);
       },
       onUsage: (usage: UsageInfo): void => {
-        this.updateAssistantUsage(assistantMessage.id, usage);
+        this.updateAssistantUsage(assistantMessageId, usage);
       },
       onError: (message: string): void => {
-        this.failAssistantMessage(assistantMessage.id, message);
+        this.failAssistantMessage(assistantMessageId, message);
       },
       onComplete: (metadata: ResponseMetadata | null, usage: UsageInfo | null): void => {
-        this.completeAssistantMessage(assistantMessage.id, metadata, usage);
+        this.completeAssistantMessage(assistantMessageId, metadata, usage);
       }
     });
+  }
+
+  private async sendMessageWithSearch(assistantMessageId: string): Promise<void> {
+    this.setAssistantContent(assistantMessageId, '正在联网搜索...');
+    const transcript: ApiMessage[] = this.toApiMessagesForNewUserRound(this.messages);
+    const allSources: SearchResult[] = [];
+    const toolRecords: ToolCallRecord[] = [];
+
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const response: ChatCompletionResponse | null = await this.deepSeekService.sendToolRound(
+        transcript,
+        this.modelMode,
+        [createWebSearchToolDefinition()]
+      );
+      if (response === null) {
+        this.failAssistantMessage(assistantMessageId, '联网对话请求失败，请检查 DeepSeek API Key 和网络。');
+        return;
+      }
+
+      if (response.metadata.finishReason !== 'tool_calls' || response.toolCalls.length === 0) {
+        this.completeSearchAssistantMessage(assistantMessageId, response, allSources, toolRecords);
+        return;
+      }
+
+      transcript.push({
+        role: MessageRole.ASSISTANT,
+        content: response.content,
+        reasoningContent: response.reasoningContent,
+        toolCallsJson: JSON.stringify(response.toolCalls)
+      });
+
+      const callCount: number = Math.min(response.toolCalls.length, MAX_TOOL_CALLS_PER_ROUND);
+      for (let i = 0; i < callCount; i++) {
+        const toolCall: ApiToolCall = response.toolCalls[i];
+        const resultJson: string = await this.executeSearchToolCall(assistantMessageId, toolCall, allSources, toolRecords);
+        transcript.push({
+          role: MessageRole.TOOL,
+          content: resultJson,
+          toolCallId: toolCall.id
+        });
+      }
+      if (response.toolCalls.length > MAX_TOOL_CALLS_PER_ROUND) {
+        const skippedJson: string = createFailedToolResultJson('tool_call_limit', 'Too many tool calls in one round.');
+        for (let i = MAX_TOOL_CALLS_PER_ROUND; i < response.toolCalls.length; i++) {
+          const skipped: ApiToolCall = response.toolCalls[i];
+          transcript.push({
+            role: MessageRole.TOOL,
+            content: skippedJson,
+            toolCallId: skipped.id
+          });
+          toolRecords.push(createToolCallRecord(assistantMessageId, skipped.id, skipped.function.name, skipped.function.arguments, skippedJson, 'failed'));
+        }
+      }
+    }
+
+    this.failAssistantMessage(assistantMessageId, '联网搜索轮数已达上限，请缩小问题范围后重试。');
+    this.attachSearchDetails(assistantMessageId, allSources, toolRecords);
+  }
+
+  private async executeSearchToolCall(
+    assistantMessageId: string,
+    toolCall: ApiToolCall,
+    allSources: SearchResult[],
+    toolRecords: ToolCallRecord[]
+  ): Promise<string> {
+    if (toolCall.function.name !== WEB_SEARCH_TOOL_NAME) {
+      const resultJson: string = createFailedToolResultJson('unauthorized_tool', 'Only web_search is allowed.');
+      toolRecords.push(createToolCallRecord(assistantMessageId, toolCall.id, toolCall.function.name, toolCall.function.arguments, resultJson, 'failed'));
+      return resultJson;
+    }
+
+    const parsed: ParsedWebSearchArguments = parseWebSearchArguments(toolCall.function.arguments);
+    if (!parsed.ok) {
+      const resultJson: string = createFailedToolResultJson('invalid_arguments', parsed.errorMessage);
+      toolRecords.push(createToolCallRecord(assistantMessageId, toolCall.id, toolCall.function.name, toolCall.function.arguments, resultJson, 'failed'));
+      return resultJson;
+    }
+
+    try {
+      const options: SearchOptions = {
+        maxResults: Math.min(this.settings.searchMaxResults, MAX_SEARCH_RESULTS_PER_CALL),
+        locale: 'zh-CN',
+        freshness: parsed.arguments.freshness
+      };
+      const results: SearchResult[] = await this.searchService.search(parsed.arguments.query, options);
+      for (let i = 0; i < results.length; i++) {
+        allSources.push(results[i]);
+      }
+      const resultJson: string = createSearchToolResultJson(parsed.arguments.query, results);
+      toolRecords.push(createToolCallRecord(assistantMessageId, toolCall.id, toolCall.function.name, toolCall.function.arguments, resultJson, 'success'));
+      return resultJson;
+    } catch (_err) {
+      const resultJson: string = createFailedToolResultJson('search_failed', 'Search provider failed.');
+      toolRecords.push(createToolCallRecord(assistantMessageId, toolCall.id, toolCall.function.name, toolCall.function.arguments, resultJson, 'failed'));
+      return resultJson;
+    }
   }
 
   stopGenerating(): void {
@@ -298,6 +451,7 @@ export class ChatViewModel {
     this.backgroundOpacity = settings.backgroundOpacity;
     this.backgroundBlurRadius = settings.backgroundBlurRadius;
     this.apiKeyConfigured = settings.apiKeyConfigured;
+    this.searchApiKeyConfigured = settings.searchApiKeyConfigured;
   }
 
   private restoreApiKey(): void {
@@ -307,6 +461,16 @@ export class ChatViewModel {
       this.apiKeyConfigured = apiKey.length > 0;
     } catch (err) {
       this.setApiKey('');
+    }
+  }
+
+  private restoreSearchApiKey(): void {
+    try {
+      const apiKey: string = this.preferencesService.getSearchApiKey();
+      this.setSearchApiKey(apiKey);
+      this.searchApiKeyConfigured = apiKey.length > 0;
+    } catch (err) {
+      this.setSearchApiKey('');
     }
   }
 
@@ -383,6 +547,21 @@ export class ChatViewModel {
     return apiMessages;
   }
 
+  private toApiMessagesForNewUserRound(messages: ChatMessage[]): ApiMessage[] {
+    const apiMessages: ApiMessage[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const message: ChatMessage = messages[i];
+      if (message.status === SendStatus.FAILED || message.status === SendStatus.CANCELED || message.status === SendStatus.SENDING) {
+        continue;
+      }
+      apiMessages.push({
+        role: message.role,
+        content: message.content
+      });
+    }
+    return apiMessages;
+  }
+
   private appendAssistantContent(id: string, chunk: string): void {
     this.updateAssistantMessage(id, (message: ChatMessage): void => {
       message.content += chunk;
@@ -424,6 +603,12 @@ export class ChatViewModel {
     }, true);
   }
 
+  private setAssistantContent(id: string, content: string): void {
+    this.updateAssistantMessage(id, (message: ChatMessage): void => {
+      message.content = content;
+    });
+  }
+
   private completeAssistantMessage(id: string, metadata: ResponseMetadata | null, usage: UsageInfo | null): void {
     this.isLoading = false;
     this.updateAssistantMessage(id, (message: ChatMessage): void => {
@@ -444,6 +629,40 @@ export class ChatViewModel {
       if (message.status === SendStatus.SENDING) {
         message.status = SendStatus.SUCCESS;
       }
+    }, true);
+  }
+
+  private completeSearchAssistantMessage(
+    id: string,
+    response: ChatCompletionResponse,
+    sources: SearchResult[],
+    toolCalls: ToolCallRecord[]
+  ): void {
+    this.isLoading = false;
+    this.updateAssistantMessage(id, (message: ChatMessage): void => {
+      message.content = response.content.length > 0 ? response.content : '未生成回答。';
+      message.reasoningContent = response.reasoningContent;
+      message.responseId = response.metadata.responseId;
+      message.model = response.metadata.model;
+      message.finishReason = response.metadata.finishReason;
+      message.systemFingerprint = response.metadata.systemFingerprint;
+      message.promptTokens = response.usage.promptTokens;
+      message.completionTokens = response.usage.completionTokens;
+      message.totalTokens = response.usage.totalTokens;
+      message.reasoningTokens = response.usage.reasoningTokens;
+      message.cacheHitTokens = response.usage.cacheHitTokens;
+      message.cacheMissTokens = response.usage.cacheMissTokens;
+      message.searchSources = sources;
+      message.toolCalls = toolCalls;
+      message.status = SendStatus.SUCCESS;
+      message.errorMessage = '';
+    }, true);
+  }
+
+  private attachSearchDetails(id: string, sources: SearchResult[], toolCalls: ToolCallRecord[]): void {
+    this.updateAssistantMessage(id, (message: ChatMessage): void => {
+      message.searchSources = sources;
+      message.toolCalls = toolCalls;
     }, true);
   }
 

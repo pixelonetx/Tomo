@@ -1,3 +1,5 @@
+import { BusinessError } from '@kit.BasicServicesKit';
+import { http } from '@kit.NetworkKit';
 import { ApiToolDefinition } from '../models/ApiModels';
 import {
   SearchFreshness,
@@ -6,6 +8,7 @@ import {
   ToolCallRecord,
   normalizeSearchResults
 } from '../models/SearchModels';
+import { SEARCH_REQUEST_TIMEOUT, TAVILY_SEARCH_ENDPOINT } from '../shared/Constants';
 
 export const WEB_SEARCH_TOOL_NAME: string = 'web_search';
 
@@ -43,6 +46,17 @@ interface FailedToolResultPayload {
   message: string;
 }
 
+interface TavilySearchRequest {
+  query: string;
+  search_depth: string;
+  max_results: number;
+  include_answer: boolean;
+  include_raw_content: boolean;
+  include_images: boolean;
+  topic: string;
+  time_range?: string;
+}
+
 export class SearchService {
   private provider: SearchProvider | null = null;
 
@@ -56,6 +70,70 @@ export class SearchService {
     }
     const results: SearchResult[] = await this.provider.search(query, options);
     return normalizeSearchResults(results, options.maxResults);
+  }
+}
+
+export class TavilySearchProvider implements SearchProvider {
+  private apiKey: string = '';
+
+  setApiKey(key: string): void {
+    this.apiKey = key.trim();
+  }
+
+  async search(query: string, options: SearchOptions): Promise<SearchResult[]> {
+    if (this.apiKey.length === 0 || query.trim().length === 0) {
+      return [];
+    }
+    const requestBody: TavilySearchRequest = {
+      query: query.trim(),
+      search_depth: 'basic',
+      max_results: Math.min(Math.max(options.maxResults, 1), 5),
+      include_answer: false,
+      include_raw_content: false,
+      include_images: false,
+      topic: 'general'
+    };
+    const timeRange: string = toTavilyTimeRange(options.freshness);
+    if (timeRange.length > 0) {
+      requestBody.time_range = timeRange;
+    }
+    const text: string = await this.requestSearch(JSON.stringify(requestBody));
+    if (text.length === 0) {
+      return [];
+    }
+    return parseTavilySearchResponse(text, options.maxResults);
+  }
+
+  private requestSearch(body: string): Promise<string> {
+    const request = http.createHttp();
+    return new Promise<string>((resolve) => {
+      request.request(
+        TAVILY_SEARCH_ENDPOINT,
+        {
+          method: http.RequestMethod.POST,
+          header: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          extraData: body,
+          readTimeout: SEARCH_REQUEST_TIMEOUT,
+          connectTimeout: SEARCH_REQUEST_TIMEOUT
+        },
+        (err: BusinessError, data: http.HttpResponse) => {
+          request.destroy();
+          if (err || data.responseCode >= 400) {
+            resolve('');
+            return;
+          }
+          if (typeof data.result === 'string') {
+            resolve(data.result);
+            return;
+          }
+          resolve(JSON.stringify(data.result));
+        }
+      );
+    });
   }
 }
 
@@ -168,11 +246,64 @@ export function createToolCallRecord(
   };
 }
 
+export function parseTavilySearchResponse(text: string, maxResults: number): SearchResult[] {
+  try {
+    const root = JSON.parse(text) as Record<string, Object>;
+    const items = root['results'] as Array<Record<string, Object>>;
+    const results: SearchResult[] = [];
+    if (items !== undefined) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        results.push({
+          title: stringField(item, 'title'),
+          url: stringField(item, 'url'),
+          snippet: firstNonEmptyString(item, 'content', 'snippet'),
+          publishedAt: stringField(item, 'published_date'),
+          source: sourceFromUrl(stringField(item, 'url'))
+        });
+      }
+    }
+    return normalizeSearchResults(results, maxResults);
+  } catch (_err) {
+    return [];
+  }
+}
+
 function normalizeFreshness(value: string): string {
   if (value === SearchFreshness.DAY || value === SearchFreshness.WEEK || value === SearchFreshness.MONTH) {
     return value;
   }
   return SearchFreshness.ANY;
+}
+
+function toTavilyTimeRange(freshness: string): string {
+  if (freshness === SearchFreshness.DAY) {
+    return 'day';
+  }
+  if (freshness === SearchFreshness.WEEK) {
+    return 'week';
+  }
+  if (freshness === SearchFreshness.MONTH) {
+    return 'month';
+  }
+  return '';
+}
+
+function firstNonEmptyString(source: Record<string, Object>, firstKey: string, secondKey: string): string {
+  const first: string = stringField(source, firstKey);
+  if (first.length > 0) {
+    return first;
+  }
+  return stringField(source, secondKey);
+}
+
+function sourceFromUrl(url: string): string {
+  const withoutProtocol: string = url.replace(/^https?:\/\//i, '');
+  const slashIndex: number = withoutProtocol.indexOf('/');
+  if (slashIndex < 0) {
+    return withoutProtocol;
+  }
+  return withoutProtocol.substring(0, slashIndex);
 }
 
 function stringField(source: Record<string, Object>, key: string): string {
