@@ -166,6 +166,14 @@
   - Tavily Search Key 增加 `Check search` 连通性检查。
   - 搜索 provider 错误文案细分为未配置 key、key 无效、限流、网络失败和普通 provider 失败。
   - 工具调用中未配置 Search Key 或 provider 失败时会生成明确失败 tool message，继续遵守 Function Calling transcript。
+- 新增 Navigation 设置页：
+  - 侧边栏入口从 API Key sheet 改为 Settings 子页。
+  - Settings 使用现有 `NavPathStack` 推入，承载模型模式、字号、联网默认值、最大搜索结果数、API Keys 和 About 入口。
+  - 模型模式支持 Chat / Reasoner 切换并持久化。
+  - 字号支持 12 到 22 范围内步进调整并持久化。
+  - 联网搜索默认值支持打开/关闭并持久化。
+  - 最大搜索结果数支持 1 到 5 范围内步进调整并持久化。
+  - API Keys 区域复用现有 DeepSeek / Tavily 保存、清除和检查能力。
 
 ### 验证
 
@@ -180,6 +188,6 @@
 
 ### 下一步
 
-1. 拆分 Navigation 设置页，承载模型、字号、搜索 provider、最大搜索结果数等设置。
-2. 推进 API Key 安全存储迁移，替换当前 Preferences 明文保存。
-3. 优化联网工具轮：减少 final stream 前的重复 final probe，或支持流式 tool_calls delta 解析。
+1. 推进 API Key 安全存储迁移，替换当前 Preferences 明文保存。
+2. 优化联网工具轮：减少 final stream 前的重复 final probe，或支持流式 tool_calls delta 解析。
+3. 继续完善设置页中的 provider 错误说明、余额查询和数据清理入口。

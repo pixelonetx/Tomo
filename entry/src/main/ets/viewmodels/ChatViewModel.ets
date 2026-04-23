@@ -498,6 +498,40 @@ export class ChatViewModel {
     this.webSearchEnabled = !this.webSearchEnabled;
   }
 
+  async setModelMode(mode: ModelMode): Promise<void> {
+    this.modelMode = mode;
+    this.settings.modelMode = mode;
+    try {
+      await this.preferencesService.setModelMode(mode);
+      this.settingsMessage = 'Model saved.';
+    } catch (err) {
+      this.settingsMessage = '模型设置保存失败。';
+    }
+  }
+
+  async setFontSize(size: number): Promise<void> {
+    const nextSize: number = Math.min(Math.max(Math.floor(size), 12), 22);
+    this.fontSize = nextSize;
+    this.settings.fontSize = nextSize;
+    await this.saveCurrentSettings('Font size saved.', '字号设置保存失败。');
+  }
+
+  async setWebSearchDefault(enabled: boolean): Promise<void> {
+    this.webSearchEnabled = enabled;
+    this.settings.webSearchDefaultEnabled = enabled;
+    await this.saveCurrentSettings('Search default saved.', '联网默认设置保存失败。');
+  }
+
+  async setSearchMaxResults(maxResults: number): Promise<void> {
+    const nextMax: number = Math.min(Math.max(Math.floor(maxResults), 1), 5);
+    this.settings.searchMaxResults = nextMax;
+    await this.saveCurrentSettings('Search result limit saved.', '搜索结果数保存失败。');
+  }
+
+  getSearchMaxResults(): number {
+    return this.settings.searchMaxResults;
+  }
+
   getCurrentTitle(): string {
     const conversation: Conversation | null = this.findConversation(this.currentConversationId);
     if (conversation === null) {
@@ -794,6 +828,17 @@ export class ChatViewModel {
       await this.conversationService.deleteMessage(id);
     } catch (err) {
       this.errorMessage = '消息删除失败。';
+    }
+  }
+
+  private async saveCurrentSettings(successMessage: string, failedMessage: string): Promise<void> {
+    try {
+      this.settings.apiKeyConfigured = this.apiKeyConfigured;
+      this.settings.searchApiKeyConfigured = this.searchApiKeyConfigured;
+      await this.preferencesService.saveSettings(this.settings);
+      this.settingsMessage = successMessage;
+    } catch (err) {
+      this.settingsMessage = failedMessage;
     }
   }
 

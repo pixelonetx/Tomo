@@ -2,10 +2,13 @@ import { common } from '@kit.AbilityKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { APP_NAME } from '../shared/Constants';
 import { MarkdownMessageView } from '../components/MarkdownMessageView';
+import { ModelMode } from '../models/ApiModels';
 import { ChatMessage, Conversation, MessageRole, SendStatus } from '../models/ChatModels';
 import { SearchResult } from '../models/SearchModels';
 import { WEB_BROWSER_ROUTE, WebBrowserDestination, WebBrowserParam } from './WebBrowser';
 import { ChatViewModel } from '../viewmodels/ChatViewModel';
+
+const SETTINGS_ROUTE: string = 'Settings';
 
 @Entry
 @Component
@@ -76,6 +79,9 @@ struct Index {
   private routeMap(name: string) {
     if (name === WEB_BROWSER_ROUTE) {
       WebBrowserDestination();
+    }
+    if (name === SETTINGS_ROUTE) {
+      this.SettingsDestination();
     }
   }
 
@@ -429,7 +435,7 @@ struct Index {
         .layoutWeight(1)
         .scrollBar(BarState.Off)
 
-        Button(this.getApiKeyButtonText())
+        Button('Settings')
           .width('100%')
           .height(40)
           .fontColor($r('app.color.text_primary'))
@@ -437,7 +443,7 @@ struct Index {
           .border({ width: 1, color: $r('app.color.divider') })
           .borderRadius(8)
           .onClick((): void => {
-            this.showApiKeySheet = true;
+            this.navPathStack.pushPath({ name: SETTINGS_ROUTE });
             this.isSidebarOpen = false;
           })
 
@@ -610,6 +616,155 @@ struct Index {
     .width('100%')
     .padding({ left: 20, right: 20, top: 22, bottom: 24 })
     .backgroundColor($r('app.color.page_background'))
+  }
+
+  @Builder
+  private SettingsDestination() {
+    NavDestination() {
+      List({ space: 14 }) {
+        ListItem() {
+          this.SettingsSectionTitle('Model')
+        }
+        ListItem() {
+          Row({ space: 10 }) {
+            Button('Chat')
+              .layoutWeight(1)
+              .height(40)
+              .fontColor(this.vm.modelMode === ModelMode.CHAT ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
+              .backgroundColor(this.vm.modelMode === ModelMode.CHAT ? $r('app.color.button_primary') : Color.Transparent)
+              .border({ width: 1, color: $r('app.color.divider') })
+              .borderRadius(8)
+              .onClick((): void => {
+                this.vm.setModelMode(ModelMode.CHAT);
+              })
+            Button('Reasoner')
+              .layoutWeight(1)
+              .height(40)
+              .fontColor(this.vm.modelMode === ModelMode.REASONER ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
+              .backgroundColor(this.vm.modelMode === ModelMode.REASONER ? $r('app.color.button_primary') : Color.Transparent)
+              .border({ width: 1, color: $r('app.color.divider') })
+              .borderRadius(8)
+              .onClick((): void => {
+                this.vm.setModelMode(ModelMode.REASONER);
+              })
+          }
+          .width('100%')
+        }
+
+        ListItem() {
+          this.SettingsSectionTitle('Reading')
+        }
+        ListItem() {
+          Row({ space: 10 }) {
+            Button('-')
+              .width(44)
+              .height(40)
+              .fontColor($r('app.color.text_primary'))
+              .backgroundColor(Color.Transparent)
+              .border({ width: 1, color: $r('app.color.divider') })
+              .borderRadius(8)
+              .onClick((): void => {
+                this.vm.setFontSize(this.vm.fontSize - 1);
+              })
+            Text(`Font ${this.vm.fontSize}`)
+              .fontSize(14)
+              .fontColor($r('app.color.text_primary'))
+              .textAlign(TextAlign.Center)
+              .layoutWeight(1)
+            Button('+')
+              .width(44)
+              .height(40)
+              .fontColor($r('app.color.text_primary'))
+              .backgroundColor(Color.Transparent)
+              .border({ width: 1, color: $r('app.color.divider') })
+              .borderRadius(8)
+              .onClick((): void => {
+                this.vm.setFontSize(this.vm.fontSize + 1);
+              })
+          }
+          .width('100%')
+        }
+
+        ListItem() {
+          this.SettingsSectionTitle('Web Search')
+        }
+        ListItem() {
+          Row({ space: 10 }) {
+            Button(this.vm.webSearchEnabled ? 'Default On' : 'Default Off')
+              .layoutWeight(1)
+              .height(40)
+              .fontColor(this.vm.webSearchEnabled ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
+              .backgroundColor(this.vm.webSearchEnabled ? $r('app.color.button_primary') : Color.Transparent)
+              .border({ width: 1, color: $r('app.color.divider') })
+              .borderRadius(8)
+              .onClick((): void => {
+                this.vm.setWebSearchDefault(!this.vm.webSearchEnabled);
+              })
+            Button('-')
+              .width(44)
+              .height(40)
+              .fontColor($r('app.color.text_primary'))
+              .backgroundColor(Color.Transparent)
+              .border({ width: 1, color: $r('app.color.divider') })
+              .borderRadius(8)
+              .onClick((): void => {
+                this.vm.setSearchMaxResults(this.vm.getSearchMaxResults() - 1);
+              })
+            Text(`Max ${this.vm.getSearchMaxResults()}`)
+              .fontSize(14)
+              .fontColor($r('app.color.text_primary'))
+              .textAlign(TextAlign.Center)
+              .width(64)
+            Button('+')
+              .width(44)
+              .height(40)
+              .fontColor($r('app.color.text_primary'))
+              .backgroundColor(Color.Transparent)
+              .border({ width: 1, color: $r('app.color.divider') })
+              .borderRadius(8)
+              .onClick((): void => {
+                this.vm.setSearchMaxResults(this.vm.getSearchMaxResults() + 1);
+              })
+          }
+          .width('100%')
+        }
+
+        ListItem() {
+          this.SettingsSectionTitle('API Keys')
+        }
+        ListItem() {
+          this.ApiKeySheetContent()
+        }
+
+        ListItem() {
+          Button('About & licenses')
+            .width('100%')
+            .height(42)
+            .fontColor($r('app.color.text_primary'))
+            .backgroundColor(Color.Transparent)
+            .border({ width: 1, color: $r('app.color.divider') })
+            .borderRadius(8)
+            .onClick((): void => {
+              this.showAboutSheet = true;
+            })
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .padding({ left: 18, right: 18, top: 14, bottom: 22 })
+      .backgroundColor($r('app.color.page_background'))
+    }
+    .title('Settings')
+    .hideTitleBar(false)
+  }
+
+  @Builder
+  private SettingsSectionTitle(title: string) {
+    Text(title)
+      .fontSize(13)
+      .fontWeight(FontWeight.Medium)
+      .fontColor($r('app.color.text_secondary'))
+      .width('100%')
   }
 
   @Builder
