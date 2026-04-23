@@ -54,6 +54,16 @@ export default function localUnitTest() {
       expect(requestBody.stream).assertFalse();
       expect(requestBody.tool_choice).assertEqual('auto');
       expect(requestBody.tools?.length).assertEqual(1);
+      const finalBody = service.buildToolFinalRequestBody([
+        { role: 'assistant', content: '', reasoningContent: 'tool thinking', toolCallsJson: '[{"id":"call_1","type":"function","function":{"name":"web_search","arguments":"{}"}}]' },
+        { role: 'tool', content: '{"results":[]}', toolCallId: 'call_1' }
+      ], ModelMode.REASONER, [tool]);
+      expect(finalBody.stream).assertTrue();
+      expect(finalBody.tool_choice).assertEqual('none');
+      expect(finalBody.tools?.length).assertEqual(1);
+      expect(finalBody.messages[0].reasoning_content).assertEqual('tool thinking');
+      expect(finalBody.messages[0].tool_calls?.length).assertEqual(1);
+      expect(finalBody.messages[1].tool_call_id).assertEqual('call_1');
     });
 
     it('creates bounded conversation titles', 0, () => {

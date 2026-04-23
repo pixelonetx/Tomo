@@ -111,6 +111,16 @@ export class DeepSeekService {
     });
   }
 
+  async sendStreamToolFinal(messages: ApiMessage[], mode: ModelMode, tools: ApiToolDefinition[], callback: StreamCallback): Promise<void> {
+    if (this.apiKey.length === 0) {
+      callback.onError('请先配置 DeepSeek API Key。');
+      return;
+    }
+
+    const requestBody: ChatCompletionRequest = this.buildToolFinalRequestBody(messages, mode, tools);
+    await this.sendStreamRequest(requestBody, callback);
+  }
+
   async fetchModels(): Promise<ModelListResponse | null> {
     if (this.apiKey.length === 0) {
       return null;
@@ -173,6 +183,23 @@ export class DeepSeekService {
       max_tokens: isReasoner ? REASONER_DEFAULT_MAX_TOKENS : CHAT_DEFAULT_MAX_TOKENS,
       tools: tools,
       tool_choice: 'auto'
+    };
+    if (!isReasoner) {
+      request.temperature = 1.0;
+    }
+    return request;
+  }
+
+  buildToolFinalRequestBody(messages: ApiMessage[], mode: ModelMode, tools: ApiToolDefinition[]): ChatCompletionRequest {
+    const isReasoner: boolean = mode === ModelMode.REASONER;
+    const request: ChatCompletionRequest = {
+      model: getDeepSeekModelId(mode),
+      messages: this.toRequestMessages(messages, true),
+      stream: true,
+      stream_options: { include_usage: true },
+      max_tokens: isReasoner ? REASONER_DEFAULT_MAX_TOKENS : CHAT_DEFAULT_MAX_TOKENS,
+      tools: tools,
+      tool_choice: 'none'
     };
     if (!isReasoner) {
       request.temperature = 1.0;
@@ -250,6 +277,62 @@ export class DeepSeekService {
         }
       }
     }
+  }
+
+  private sendStreamRequest(requestBody: ChatCompletionRequest, callback: StreamCallback): Promise<void> {
+    this.cancelRequest();
+    this.streamBuffer = '';
+    this.latestMetadata = null;
+    this.latestUsage = null;
+    this.streamCompleted = false;
+
+    const request = http.createHttp();
+    this.currentRequest = request;
+    const decoder = util.TextDecoder.create('utf-8');
+
+    return new Promise<void>((resolve) => {
+      request.on('dataReceive', (data: ArrayBuffer) => {
+        const chunk: string = decoder.decodeToString(new Uint8Array(data));
+        this.handleStreamText(chunk, callback);
+      });
+
+      request.on('dataEnd', () => {
+        if (this.streamBuffer.length > 0) {
+          this.handleStreamText('\n\n', callback);
+        }
+        if (!this.streamCompleted) {
+          callback.onComplete(this.latestMetadata, this.latestUsage);
+          this.streamCompleted = true;
+        }
+        this.destroyRequest(request);
+        resolve();
+      });
+
+      request.requestInStream(
+        `${DEEPSEEK_BASE_URL}${DEEPSEEK_CHAT_ENDPOINT}`,
+        {
+          method: http.RequestMethod.POST,
+          header: this.buildJsonHeaders(),
+          extraData: JSON.stringify(requestBody),
+          expectDataType: http.HttpDataType.STRING,
+          usingCache: false,
+          priority: 1,
+          readTimeout: DEEPSEEK_REQUEST_TIMEOUT,
+          connectTimeout: DEEPSEEK_REQUEST_TIMEOUT,
+          usingProtocol: http.HttpProtocol.HTTP1_1
+        }
+      ).then((responseCode: number) => {
+        if (responseCode >= 400) {
+          callback.onError(mapDeepSeekError(responseCode, 'DeepSeek 请求失败。'));
+          this.destroyRequest(request);
+          resolve();
+        }
+      }).catch((_err: Error) => {
+        callback.onError('网络请求失败，请稍后重试。');
+        this.destroyRequest(request);
+        resolve();
+      });
+    });
   }
 
   private requestText(url: string, method: http.RequestMethod, body: string): Promise<string> {

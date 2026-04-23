@@ -151,6 +151,13 @@
   - 主消息流在回答底部显示来源数量，消息详情展示来源列表并支持复制。
   - 普通非联网聊天仍保持原 SSE 流式路径；联网聊天第一版使用非流式工具闭环，后续可把最终回答恢复为流式。
   - 新增单元测试覆盖 Tavily 响应解析。
+- 恢复联网模式最终回答的流式体验：
+  - `DeepSeekService` 新增 `sendStreamToolFinal()`，用于工具调用完成后带完整 transcript 发起 SSE final answer。
+  - 新增 `buildToolFinalRequestBody()`，保留当前工具回合内的 `reasoning_content`、assistant `tool_calls` 和 `tool_call_id`。
+  - final stream 继续携带同一个 `web_search` schema，但使用 `tool_choice=none`，避免模型在最终输出阶段继续追加工具调用。
+  - `ChatViewModel` 在工具轮确认无新 tool calls 后，清空“正在联网搜索...”状态并开始流式输出最终回答。
+  - 流式完成或失败时都会把 search sources 和 tool call records 重新附加到最终 assistant 消息并持久化。
+  - 新增单元测试覆盖工具 final stream 请求体，确保 reasoner 工具回合不会丢失 reasoning / tool transcript。
 
 ### 验证
 
@@ -165,6 +172,6 @@
 
 ### 下一步
 
-1. 将联网工具闭环的最终回答改为流式输出，并保留 tool_calls transcript。
-2. 继续推进 Reasoning 折叠展示和更完整的搜索来源详情交互。
-3. 增加 Search API Key 连通性检查和 provider 错误文案细分。
+1. 继续推进 Reasoning 折叠展示和更完整的搜索来源详情交互。
+2. 增加 Search API Key 连通性检查和 provider 错误文案细分。
+3. 优化联网工具轮：减少 final stream 前的重复 final probe，或支持流式 tool_calls delta 解析。

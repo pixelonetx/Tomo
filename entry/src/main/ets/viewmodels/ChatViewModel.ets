@@ -278,7 +278,7 @@ export class ChatViewModel {
       }
 
       if (response.metadata.finishReason !== 'tool_calls' || response.toolCalls.length === 0) {
-        this.completeSearchAssistantMessage(assistantMessageId, response, allSources, toolRecords);
+        await this.streamSearchFinalAnswer(assistantMessageId, transcript, allSources, toolRecords);
         return;
       }
 
@@ -315,6 +315,37 @@ export class ChatViewModel {
 
     this.failAssistantMessage(assistantMessageId, '联网搜索轮数已达上限，请缩小问题范围后重试。');
     this.attachSearchDetails(assistantMessageId, allSources, toolRecords);
+  }
+
+  private async streamSearchFinalAnswer(
+    assistantMessageId: string,
+    transcript: ApiMessage[],
+    sources: SearchResult[],
+    toolRecords: ToolCallRecord[]
+  ): Promise<void> {
+    this.setAssistantContent(assistantMessageId, '');
+    await this.deepSeekService.sendStreamToolFinal(transcript, this.modelMode, [createWebSearchToolDefinition()], {
+      onContent: (chunk: string): void => {
+        this.appendAssistantContent(assistantMessageId, chunk);
+      },
+      onReasoning: (chunk: string): void => {
+        this.appendAssistantReasoning(assistantMessageId, chunk);
+      },
+      onMetadata: (metadata: ResponseMetadata): void => {
+        this.updateAssistantMetadata(assistantMessageId, metadata);
+      },
+      onUsage: (usage: UsageInfo): void => {
+        this.updateAssistantUsage(assistantMessageId, usage);
+      },
+      onError: (message: string): void => {
+        this.failAssistantMessage(assistantMessageId, message);
+        this.attachSearchDetails(assistantMessageId, sources, toolRecords);
+      },
+      onComplete: (metadata: ResponseMetadata | null, usage: UsageInfo | null): void => {
+        this.completeAssistantMessage(assistantMessageId, metadata, usage);
+        this.attachSearchDetails(assistantMessageId, sources, toolRecords);
+      }
+    });
   }
 
   private async executeSearchToolCall(
