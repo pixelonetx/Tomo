@@ -25,6 +25,7 @@ export interface ParsedWebSearchArguments {
 
 export interface SearchProvider {
   search(query: string, options: SearchOptions): Promise<SearchResult[]>;
+  getLastErrorMessage(): string;
 }
 
 interface SearchToolResultItem {
@@ -71,17 +72,27 @@ export class SearchService {
     const results: SearchResult[] = await this.provider.search(query, options);
     return normalizeSearchResults(results, options.maxResults);
   }
+
+  getLastErrorMessage(): string {
+    if (this.provider === null) {
+      return 'Search provider is not configured.';
+    }
+    return this.provider.getLastErrorMessage();
+  }
 }
 
 export class TavilySearchProvider implements SearchProvider {
   private apiKey: string = '';
+  private lastErrorMessage: string = '';
 
   setApiKey(key: string): void {
     this.apiKey = key.trim();
   }
 
   async search(query: string, options: SearchOptions): Promise<SearchResult[]> {
+    this.lastErrorMessage = '';
     if (this.apiKey.length === 0 || query.trim().length === 0) {
+      this.lastErrorMessage = this.apiKey.length === 0 ? 'Search API Key is not configured.' : 'Search query is empty.';
       return [];
     }
     const requestBody: TavilySearchRequest = {
@@ -104,6 +115,10 @@ export class TavilySearchProvider implements SearchProvider {
     return parseTavilySearchResponse(text, options.maxResults);
   }
 
+  getLastErrorMessage(): string {
+    return this.lastErrorMessage;
+  }
+
   private requestSearch(body: string): Promise<string> {
     const request = http.createHttp();
     return new Promise<string>((resolve) => {
@@ -122,7 +137,23 @@ export class TavilySearchProvider implements SearchProvider {
         },
         (err: BusinessError, data: http.HttpResponse) => {
           request.destroy();
-          if (err || data.responseCode >= 400) {
+          if (err) {
+            this.lastErrorMessage = 'Search network request failed.';
+            resolve('');
+            return;
+          }
+          if (data.responseCode === 401 || data.responseCode === 403) {
+            this.lastErrorMessage = 'Search API Key is invalid.';
+            resolve('');
+            return;
+          }
+          if (data.responseCode === 429) {
+            this.lastErrorMessage = 'Search provider rate limit reached.';
+            resolve('');
+            return;
+          }
+          if (data.responseCode >= 400) {
+            this.lastErrorMessage = 'Search provider request failed.';
             resolve('');
             return;
           }

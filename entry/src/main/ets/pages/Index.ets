@@ -3,6 +3,7 @@ import { pasteboard } from '@kit.BasicServicesKit';
 import { APP_NAME } from '../shared/Constants';
 import { MarkdownMessageView } from '../components/MarkdownMessageView';
 import { ChatMessage, Conversation, MessageRole, SendStatus } from '../models/ChatModels';
+import { SearchResult } from '../models/SearchModels';
 import { WEB_BROWSER_ROUTE, WebBrowserDestination, WebBrowserParam } from './WebBrowser';
 import { ChatViewModel } from '../viewmodels/ChatViewModel';
 
@@ -15,6 +16,7 @@ struct Index {
   @State showMessageDetailSheet: boolean = false;
   @State showAboutSheet: boolean = false;
   @State selectedMessageId: string = '';
+  @State expandedReasoningIds: string[] = [];
   @State vm: ChatViewModel = new ChatViewModel();
 
   aboutToAppear(): void {
@@ -147,10 +149,7 @@ struct Index {
       } else {
         Column({ space: 8 }) {
           if (message.reasoningContent.length > 0) {
-            Text(`Reasoning: ${message.reasoningContent}`)
-              .fontSize(Math.max(this.vm.fontSize - 2, 12))
-              .fontColor($r('app.color.text_secondary'))
-              .lineHeight(19)
+            this.ReasoningBlock(message)
           }
           MarkdownMessageView({
             content: message.content,
@@ -165,9 +164,15 @@ struct Index {
               .fontColor($r('app.color.text_secondary'))
           }
           if (message.searchSources.length > 0) {
-            Text(`Sources ${message.searchSources.length}`)
+            Button(`Sources ${message.searchSources.length}`)
               .fontSize(12)
               .fontColor($r('app.color.text_secondary'))
+              .backgroundColor(Color.Transparent)
+              .height(28)
+              .onClick((): void => {
+                this.selectedMessageId = message.id;
+                this.showMessageDetailSheet = true;
+              })
           }
         }
         .width('100%')
@@ -220,6 +225,33 @@ struct Index {
         })
     }
     .width('100%')
+  }
+
+  @Builder
+  private ReasoningBlock(message: ChatMessage) {
+    Column({ space: 6 }) {
+      Button(this.isReasoningExpanded(message.id) ? 'Hide reasoning' : this.getReasoningSummary(message))
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+        .backgroundColor(Color.Transparent)
+        .height(28)
+        .onClick((): void => {
+          this.toggleReasoning(message.id);
+        })
+
+      if (this.isReasoningExpanded(message.id)) {
+        Text(message.reasoningContent)
+          .fontSize(Math.max(this.vm.fontSize - 2, 12))
+          .fontColor($r('app.color.text_secondary'))
+          .lineHeight(19)
+          .width('100%')
+          .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+          .backgroundColor($r('app.color.code_block_bg'))
+          .borderRadius(8)
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
@@ -552,6 +584,17 @@ struct Index {
             this.vm.clearSearchApiKey();
           })
 
+        Button('Check search')
+          .layoutWeight(1)
+          .height(42)
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor(Color.Transparent)
+          .border({ width: 1, color: $r('app.color.divider') })
+          .borderRadius(10)
+          .onClick((): void => {
+            this.vm.checkSearchApiKey();
+          })
+
         Button('Save search')
           .layoutWeight(1)
           .height(42)
@@ -681,11 +724,7 @@ struct Index {
       this.DetailRow('Cache hit / miss', this.getSelectedMessageCacheTokens())
       this.DetailRow('Sources', this.getSelectedMessageSourceCount())
       if (this.getSelectedMessageSourceCount() !== '0') {
-        Text(this.getSelectedMessageSourcesText())
-          .fontSize(12)
-          .fontColor($r('app.color.text_secondary'))
-          .lineHeight(18)
-          .width('100%')
+        this.SourceList()
       }
 
       Row({ space: 10 }) {
@@ -748,6 +787,28 @@ struct Index {
     return 'Set API Key';
   }
 
+  private isReasoningExpanded(messageId: string): boolean {
+    return this.expandedReasoningIds.indexOf(messageId) >= 0;
+  }
+
+  private toggleReasoning(messageId: string): void {
+    const ids: string[] = this.expandedReasoningIds.slice();
+    const index: number = ids.indexOf(messageId);
+    if (index >= 0) {
+      ids.splice(index, 1);
+    } else {
+      ids.push(messageId);
+    }
+    this.expandedReasoningIds = ids;
+  }
+
+  private getReasoningSummary(message: ChatMessage): string {
+    if (message.reasoningTokens > 0) {
+      return `Reasoning ${message.reasoningTokens} tokens`;
+    }
+    return `Reasoning ${message.reasoningContent.length} chars`;
+  }
+
   private copyText(text: string): void {
     if (text.length === 0) {
       this.showToast('Nothing to copy');
@@ -782,6 +843,27 @@ struct Index {
       name: WEB_BROWSER_ROUTE,
       param: param
     });
+  }
+
+  @Builder
+  private SourceList() {
+    Column({ space: 10 }) {
+      ForEach(this.getSelectedMessageSources(), (source: SearchResult, index: number) => {
+        Button(`[${index + 1}] ${source.title}`)
+          .width('100%')
+          .height(40)
+          .fontSize(13)
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor(Color.Transparent)
+          .border({ width: 1, color: $r('app.color.divider') })
+          .borderRadius(8)
+          .onClick((): void => {
+            this.showMessageDetailSheet = false;
+            this.openWebLink(source.url, source.title);
+          })
+      }, (source: SearchResult): string => source.url)
+    }
+    .width('100%')
   }
 
   private getSelectedMessage(): ChatMessage | null {
@@ -889,6 +971,14 @@ struct Index {
       return '0';
     }
     return `${message.searchSources.length}`;
+  }
+
+  private getSelectedMessageSources(): SearchResult[] {
+    const message: ChatMessage | null = this.getSelectedMessage();
+    if (message === null) {
+      return [];
+    }
+    return message.searchSources;
   }
 
   private getSelectedMessageSourcesText(): string {

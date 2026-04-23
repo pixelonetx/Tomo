@@ -149,6 +149,27 @@ export class ChatViewModel {
     }
   }
 
+  async checkSearchApiKey(): Promise<void> {
+    const cleanKey: string = this.searchApiKeyDraft.trim();
+    if (cleanKey.length === 0) {
+      this.settingsMessage = '请输入 Tavily Search API Key 后再检查。';
+      return;
+    }
+    this.setSearchApiKey(cleanKey);
+    this.settingsMessage = 'Checking Tavily Search...';
+    const results: SearchResult[] = await this.searchService.search('DeepSeek API docs', {
+      maxResults: 1,
+      locale: 'zh-CN',
+      freshness: 'any'
+    });
+    if (results.length > 0) {
+      this.settingsMessage = 'Search connected. Tavily is available.';
+      return;
+    }
+    const providerMessage: string = this.searchService.getLastErrorMessage();
+    this.settingsMessage = providerMessage.length > 0 ? providerMessage : '检查失败，请确认 Tavily API Key 和网络。';
+  }
+
   async checkApiKey(): Promise<void> {
     const cleanKey: string = this.apiKeyDraft.trim();
     if (cleanKey.length === 0) {
@@ -367,6 +388,12 @@ export class ChatViewModel {
       return resultJson;
     }
 
+    if (!this.searchApiKeyConfigured) {
+      const resultJson: string = createFailedToolResultJson('search_key_missing', 'Search API Key is not configured.');
+      toolRecords.push(createToolCallRecord(assistantMessageId, toolCall.id, toolCall.function.name, toolCall.function.arguments, resultJson, 'failed'));
+      return resultJson;
+    }
+
     try {
       const options: SearchOptions = {
         maxResults: Math.min(this.settings.searchMaxResults, MAX_SEARCH_RESULTS_PER_CALL),
@@ -374,6 +401,12 @@ export class ChatViewModel {
         freshness: parsed.arguments.freshness
       };
       const results: SearchResult[] = await this.searchService.search(parsed.arguments.query, options);
+      const providerMessage: string = this.searchService.getLastErrorMessage();
+      if (results.length === 0 && providerMessage.length > 0) {
+        const resultJson: string = createFailedToolResultJson('search_failed', providerMessage);
+        toolRecords.push(createToolCallRecord(assistantMessageId, toolCall.id, toolCall.function.name, toolCall.function.arguments, resultJson, 'failed'));
+        return resultJson;
+      }
       for (let i = 0; i < results.length; i++) {
         allSources.push(results[i]);
       }

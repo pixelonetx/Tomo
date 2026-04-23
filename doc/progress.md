@@ -158,6 +158,14 @@
   - `ChatViewModel` 在工具轮确认无新 tool calls 后，清空“正在联网搜索...”状态并开始流式输出最终回答。
   - 流式完成或失败时都会把 search sources 和 tool call records 重新附加到最终 assistant 消息并持久化。
   - 新增单元测试覆盖工具 final stream 请求体，确保 reasoner 工具回合不会丢失 reasoning / tool transcript。
+- 优化 reasoning 与搜索来源体验：
+  - Assistant reasoning 默认折叠展示，只保留轻量 `Reasoning N tokens/chars` 入口。
+  - 点击 reasoning 入口可展开或收起完整 reasoning 文本。
+  - 消息底部的 `Sources N` 改为可点击入口，直接打开消息详情。
+  - 消息详情中的来源从纯文本升级为可点击列表，点击后推入 Navigation 内置浏览器页。
+  - Tavily Search Key 增加 `Check search` 连通性检查。
+  - 搜索 provider 错误文案细分为未配置 key、key 无效、限流、网络失败和普通 provider 失败。
+  - 工具调用中未配置 Search Key 或 provider 失败时会生成明确失败 tool message，继续遵守 Function Calling transcript。
 
 ### 验证
 
@@ -172,6 +180,6 @@
 
 ### 下一步
 
-1. 继续推进 Reasoning 折叠展示和更完整的搜索来源详情交互。
-2. 增加 Search API Key 连通性检查和 provider 错误文案细分。
+1. 拆分 Navigation 设置页，承载模型、字号、搜索 provider、最大搜索结果数等设置。
+2. 推进 API Key 安全存储迁移，替换当前 Preferences 明文保存。
 3. 优化联网工具轮：减少 final stream 前的重复 final probe，或支持流式 tool_calls delta 解析。
