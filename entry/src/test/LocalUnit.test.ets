@@ -15,6 +15,7 @@ import {
   parseTavilySearchResponse,
   parseWebSearchArguments
 } from '../main/ets/services/SearchToolService';
+import { getActivePathMessages, normalizeConversationPath } from '../main/ets/services/ConversationPathService';
 import { buildMarkdownHtml, estimateMarkdownHeight, normalizeTaskListMarkers, toScriptString } from '../main/ets/shared/MarkdownHtmlRenderer';
 import { CONTEXT_STANDARD_CHAR_BUDGET } from '../main/ets/shared/Constants';
 import { ChatViewModel } from '../main/ets/viewmodels/ChatViewModel';
@@ -290,6 +291,70 @@ export default function localUnitTest() {
       expect(visible[1].content).assertEqual('second');
       expect(vm.getAssistantBranchCount(secondAssistant)).assertEqual(2);
       expect(vm.getAssistantBranchPosition(secondAssistant)).assertEqual(2);
+    });
+
+    it('normalizes legacy conversations into a full active path', 0, () => {
+      const conversation: Conversation = createConversation('Legacy path');
+      const firstUser = createMessage(conversation.id, MessageRole.USER, 'first user');
+      const firstAssistant = createMessage(conversation.id, MessageRole.ASSISTANT, 'first assistant');
+      const secondUser = createMessage(conversation.id, MessageRole.USER, 'second user');
+      const secondAssistant = createMessage(conversation.id, MessageRole.ASSISTANT, 'second assistant');
+      const messages = [firstUser, firstAssistant, secondUser, secondAssistant];
+      const changed = normalizeConversationPath(messages);
+      const active = getActivePathMessages(messages);
+      expect(changed).assertTrue();
+      expect(firstUser.pathParentId).assertEqual('');
+      expect(firstAssistant.pathParentId).assertEqual(firstUser.id);
+      expect(secondUser.pathParentId).assertEqual(firstAssistant.id);
+      expect(secondAssistant.pathParentId).assertEqual(secondUser.id);
+      expect(firstAssistant.branchParentId).assertEqual(firstUser.id);
+      expect(secondAssistant.branchParentId).assertEqual(secondUser.id);
+      expect(active.length).assertEqual(4);
+      expect(active[3].content).assertEqual('second assistant');
+    });
+
+    it('keeps migrated legacy messages visible after new path metadata appears', 0, () => {
+      const conversation: Conversation = createConversation('Mixed path');
+      const firstUser = createMessage(conversation.id, MessageRole.USER, 'old first');
+      const firstAssistant = createMessage(conversation.id, MessageRole.ASSISTANT, 'old answer');
+      const secondUser = createMessage(conversation.id, MessageRole.USER, 'new question');
+      secondUser.pathParentId = firstAssistant.id;
+      const secondAssistant = createMessage(conversation.id, MessageRole.ASSISTANT, 'new answer');
+      secondAssistant.pathParentId = secondUser.id;
+      secondAssistant.branchParentId = secondUser.id;
+      secondAssistant.branchIndex = 1;
+      secondAssistant.branchActive = true;
+      const messages = [firstUser, firstAssistant, secondUser, secondAssistant];
+      normalizeConversationPath(messages);
+      const active = getActivePathMessages(messages);
+      expect(active.length).assertEqual(4);
+      expect(active[0].content).assertEqual('old first');
+      expect(active[1].content).assertEqual('old answer');
+      expect(active[2].content).assertEqual('new question');
+      expect(active[3].content).assertEqual('new answer');
+    });
+
+    it('normalizes pre-path assistant versions as siblings', 0, () => {
+      const conversation: Conversation = createConversation('Version migration');
+      const userMessage = createMessage(conversation.id, MessageRole.USER, 'draft');
+      const firstAssistant = createMessage(conversation.id, MessageRole.ASSISTANT, 'old version');
+      firstAssistant.branchParentId = userMessage.id;
+      firstAssistant.branchIndex = 1;
+      firstAssistant.branchActive = false;
+      const secondAssistant = createMessage(conversation.id, MessageRole.ASSISTANT, 'active version');
+      secondAssistant.branchParentId = userMessage.id;
+      secondAssistant.branchIndex = 2;
+      secondAssistant.branchActive = true;
+      const followUp = createMessage(conversation.id, MessageRole.USER, 'follow up');
+      const messages = [userMessage, firstAssistant, secondAssistant, followUp];
+      normalizeConversationPath(messages);
+      const active = getActivePathMessages(messages);
+      expect(firstAssistant.pathParentId).assertEqual(userMessage.id);
+      expect(secondAssistant.pathParentId).assertEqual(userMessage.id);
+      expect(followUp.pathParentId).assertEqual(secondAssistant.id);
+      expect(active.length).assertEqual(3);
+      expect(active[1].content).assertEqual('active version');
+      expect(active[2].content).assertEqual('follow up');
     });
 
     it('keeps downstream messages scoped to the active branch path', 0, () => {

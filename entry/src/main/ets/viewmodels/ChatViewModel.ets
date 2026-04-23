@@ -12,6 +12,7 @@ import {
 import { AppSettings, createDefaultSettings } from '../models/SettingsModels';
 import { SearchOptions, SearchResult, ToolCallRecord, mergeSearchSources } from '../models/SearchModels';
 import { ConversationService } from '../services/ConversationService';
+import { getActivePathMessages, normalizeConversationPath } from '../services/ConversationPathService';
 import { DeepSeekService } from '../services/DeepSeekService';
 import { PreferencesService } from '../services/PreferencesService';
 import {
@@ -88,6 +89,7 @@ export class ChatViewModel {
     try {
       await this.conversationService.init(context);
       this.conversations = await this.conversationService.loadConversations();
+      await this.normalizeLoadedConversationPaths();
     } catch (err) {
       this.conversations = [];
       this.errorMessage = '会话数据库初始化失败，本次启动仅使用内存会话。';
@@ -756,7 +758,7 @@ export class ChatViewModel {
   }
 
   getVisibleMessages(): ChatMessage[] {
-    return this.onlyActiveBranchMessages(this.messages);
+    return getActivePathMessages(this.messages);
   }
 
   getAssistantBranchCount(message: ChatMessage): number {
@@ -800,7 +802,7 @@ export class ChatViewModel {
   getCurrentConversationMarkdown(): string {
     const conversation: Conversation | null = this.findConversation(this.currentConversationId);
     const title: string = conversation === null ? 'New chat' : conversation.title;
-    const messages: ChatMessage[] = this.onlyActiveBranchMessages(conversation === null ? this.messages : conversation.messages);
+    const messages: ChatMessage[] = getActivePathMessages(conversation === null ? this.messages : conversation.messages);
     const lines: string[] = [];
     lines.push(`# ${title}`);
     lines.push('');
@@ -882,6 +884,18 @@ export class ChatViewModel {
       this.searchApiKeyConfigured = apiKey.length > 0;
     } catch (err) {
       this.setSearchApiKey('');
+    }
+  }
+
+  private async normalizeLoadedConversationPaths(): Promise<void> {
+    for (let i = 0; i < this.conversations.length; i++) {
+      const conversation: Conversation = this.conversations[i];
+      if (!normalizeConversationPath(conversation.messages)) {
+        continue;
+      }
+      for (let j = 0; j < conversation.messages.length; j++) {
+        await this.persistMessage(conversation.messages[j]);
+      }
     }
   }
 
@@ -980,60 +994,11 @@ export class ChatViewModel {
   }
 
   private toApiMessages(messages: ChatMessage[]): ApiMessage[] {
-    return this.toBudgetedApiMessages(this.onlyActiveBranchMessages(messages), true);
+    return this.toBudgetedApiMessages(getActivePathMessages(messages), true);
   }
 
   private toApiMessagesForNewUserRound(messages: ChatMessage[]): ApiMessage[] {
-    return this.toBudgetedApiMessages(this.onlyActiveBranchMessages(messages), false);
-  }
-
-  private onlyActiveBranchMessages(messages: ChatMessage[]): ChatMessage[] {
-    if (!this.hasBranchPathMetadata(messages)) {
-      const legacyActive: ChatMessage[] = [];
-      for (let i = 0; i < messages.length; i++) {
-        const message: ChatMessage = messages[i];
-        if (message.role === MessageRole.ASSISTANT && message.branchParentId.length > 0 && !message.branchActive) {
-          continue;
-        }
-        legacyActive.push(message);
-      }
-      return legacyActive;
-    }
-
-    const active: ChatMessage[] = [];
-    let parentId: string = '';
-    while (true) {
-      const child: ChatMessage | null = this.findActivePathChild(messages, parentId);
-      if (child === null) {
-        break;
-      }
-      active.push(child);
-      parentId = child.id;
-    }
-    return active;
-  }
-
-  private findActivePathChild(messages: ChatMessage[], parentId: string): ChatMessage | null {
-    for (let i = 0; i < messages.length; i++) {
-      const message: ChatMessage = messages[i];
-      if (message.pathParentId !== parentId) {
-        continue;
-      }
-      if (message.role === MessageRole.ASSISTANT && message.branchParentId.length > 0 && !message.branchActive) {
-        continue;
-      }
-      return message;
-    }
-    return null;
-  }
-
-  private hasBranchPathMetadata(messages: ChatMessage[]): boolean {
-    for (let i = 0; i < messages.length; i++) {
-      if (messages[i].pathParentId.length > 0) {
-        return true;
-      }
-    }
-    return false;
+    return this.toBudgetedApiMessages(getActivePathMessages(messages), false);
   }
 
   private toBudgetedApiMessages(messages: ChatMessage[], includeReasoning: boolean): ApiMessage[] {
@@ -1067,7 +1032,7 @@ export class ChatViewModel {
 
   private estimateContextChars(messages: ChatMessage[]): number {
     let chars: number = 0;
-    const activeMessages: ChatMessage[] = this.onlyActiveBranchMessages(messages);
+    const activeMessages: ChatMessage[] = getActivePathMessages(messages);
     for (let i = 0; i < activeMessages.length; i++) {
       const message: ChatMessage = activeMessages[i];
       if (message.status === SendStatus.FAILED || message.status === SendStatus.CANCELED || message.status === SendStatus.SENDING) {

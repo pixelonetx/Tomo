@@ -23,6 +23,7 @@ struct Index {
   @State showEditMessageSheet: boolean = false;
   @State showDangerConfirmSheet: boolean = false;
   @State pendingDangerAction: string = '';
+  @State pendingDeleteMessageId: string = '';
   @State selectedMessageId: string = '';
   @State editMessageDraft: string = '';
   @State expandedReasoningIds: string[] = [];
@@ -304,7 +305,7 @@ struct Index {
         .backgroundColor(Color.Transparent)
         .height(28)
         .onClick((): void => {
-          this.vm.deleteMessage(message.id);
+          this.showDeleteMessageConfirm(message.id);
         })
     }
     .width('100%')
@@ -1113,6 +1114,7 @@ struct Index {
           .onClick((): void => {
             this.showDangerConfirmSheet = false;
             this.pendingDangerAction = '';
+            this.pendingDeleteMessageId = '';
           })
 
         Button(this.getDangerConfirmActionText())
@@ -1363,12 +1365,22 @@ struct Index {
 
   private showDangerConfirm(action: string): void {
     this.pendingDangerAction = action;
+    this.pendingDeleteMessageId = '';
+    this.showDangerConfirmSheet = true;
+  }
+
+  private showDeleteMessageConfirm(messageId: string): void {
+    this.pendingDangerAction = 'message';
+    this.pendingDeleteMessageId = messageId;
     this.showDangerConfirmSheet = true;
   }
 
   private getDangerConfirmTitle(): string {
     if (this.pendingDangerAction === 'settings') {
       return 'Clear settings';
+    }
+    if (this.pendingDangerAction === 'message') {
+      return 'Delete message';
     }
     return 'Clear chats';
   }
@@ -1377,6 +1389,9 @@ struct Index {
     if (this.pendingDangerAction === 'settings') {
       return 'Reset local settings and remove encrypted DeepSeek and Tavily keys?';
     }
+    if (this.pendingDangerAction === 'message') {
+      return 'Delete this local message from the conversation?';
+    }
     return 'Delete all local conversations on this device?';
   }
 
@@ -1384,15 +1399,24 @@ struct Index {
     if (this.pendingDangerAction === 'settings') {
       return 'Clear settings';
     }
+    if (this.pendingDangerAction === 'message') {
+      return 'Delete';
+    }
     return 'Clear chats';
   }
 
   private runDangerAction(): void {
     const action: string = this.pendingDangerAction;
+    const messageId: string = this.pendingDeleteMessageId;
     this.showDangerConfirmSheet = false;
     this.pendingDangerAction = '';
+    this.pendingDeleteMessageId = '';
     if (action === 'settings') {
       this.vm.resetLocalSettingsAndKeys();
+      return;
+    }
+    if (action === 'message') {
+      this.vm.deleteMessage(messageId);
       return;
     }
     if (action === 'chats') {
