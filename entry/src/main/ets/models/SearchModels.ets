@@ -12,6 +12,7 @@ export enum SearchFreshness {
 }
 
 export interface SearchResult {
+  index: number;
   title: string;
   url: string;
   snippet: string;
@@ -53,6 +54,7 @@ export function normalizeSearchResults(results: SearchResult[], maxResults: numb
     }
     seen.push(url);
     normalized.push({
+      index: item.index,
       title: title,
       url: url,
       snippet: truncateSnippet(item.snippet),
@@ -62,6 +64,44 @@ export function normalizeSearchResults(results: SearchResult[], maxResults: numb
   }
 
   return normalized;
+}
+
+export function mergeSearchSources(existing: SearchResult[], nextResults: SearchResult[]): SearchResult[] {
+  const merged: SearchResult[] = [];
+  const seen: string[] = [];
+  for (let i = 0; i < existing.length; i++) {
+    const source: SearchResult = existing[i];
+    const url: string = source.url.trim();
+    if (url.length === 0 || seen.indexOf(url) >= 0) {
+      continue;
+    }
+    seen.push(url);
+    merged.push({
+      index: merged.length + 1,
+      title: source.title,
+      url: source.url,
+      snippet: source.snippet,
+      publishedAt: source.publishedAt,
+      source: source.source
+    });
+  }
+  for (let i = 0; i < nextResults.length; i++) {
+    const source: SearchResult = nextResults[i];
+    const url: string = source.url.trim();
+    if (url.length === 0 || seen.indexOf(url) >= 0) {
+      continue;
+    }
+    seen.push(url);
+    merged.push({
+      index: merged.length + 1,
+      title: source.title,
+      url: source.url,
+      snippet: source.snippet,
+      publishedAt: source.publishedAt,
+      source: source.source
+    });
+  }
+  return merged;
 }
 
 function truncateSnippet(snippet: string): string {

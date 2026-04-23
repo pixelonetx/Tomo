@@ -10,7 +10,7 @@ import {
   createMessage
 } from '../models/ChatModels';
 import { AppSettings, createDefaultSettings } from '../models/SettingsModels';
-import { SearchOptions, SearchResult, ToolCallRecord } from '../models/SearchModels';
+import { SearchOptions, SearchResult, ToolCallRecord, mergeSearchSources } from '../models/SearchModels';
 import { ConversationService } from '../services/ConversationService';
 import { DeepSeekService } from '../services/DeepSeekService';
 import { PreferencesService } from '../services/PreferencesService';
@@ -402,10 +402,14 @@ export class ChatViewModel {
         toolRecords.push(createToolCallRecord(assistantMessageId, toolCall.id, toolCall.function.name, toolCall.function.arguments, resultJson, 'failed'));
         return resultJson;
       }
-      for (let i = 0; i < results.length; i++) {
-        allSources.push(results[i]);
+      const beforeCount: number = allSources.length;
+      const mergedSources: SearchResult[] = mergeSearchSources(allSources, results);
+      allSources.splice(0, allSources.length);
+      for (let i = 0; i < mergedSources.length; i++) {
+        allSources.push(mergedSources[i]);
       }
-      const resultJson: string = createSearchToolResultJson(parsed.arguments.query, results);
+      const indexedResults: SearchResult[] = allSources.slice(beforeCount);
+      const resultJson: string = createSearchToolResultJson(parsed.arguments.query, indexedResults);
       toolRecords.push(createToolCallRecord(assistantMessageId, toolCall.id, toolCall.function.name, toolCall.function.arguments, resultJson, 'success'));
       return resultJson;
     } catch (_err) {

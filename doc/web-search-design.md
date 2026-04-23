@@ -265,6 +265,8 @@ CREATE TABLE IF NOT EXISTS message_search_sources (
 - tool transcript 存在内部表，不作为聊天消息展示。
 - assistant message 详情页展示来源列表。
 - 删除 assistant message 时同步删除 tool calls 和 sources。
+- 单条 assistant 消息内的来源编号必须稳定为 1-based citation index。多轮工具调用返回的来源先按 URL 去重，再进入全局来源列表；tool result JSON、Markdown 正文引用 `[n]` 和消息详情来源列表必须使用同一个 index。
+- Markdown 渲染层把已知 `[1]`、`[2]` 等 citation 渲染为可点击引用，通过 bridge 回传 citation index，并打开对应来源。
 
 ## Reasoner + 搜索
 

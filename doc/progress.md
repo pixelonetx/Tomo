@@ -189,6 +189,14 @@
   - 如果模型返回 `finish_reason=tool_calls`，继续执行受控 `web_search` 并追加 tool message 后进入下一轮。
   - Reasoner 在工具轮中的 `reasoning_content` 继续实时展示并保留进同一回合 transcript。
   - 新增单元测试覆盖流式工具请求体和 streaming tool call delta 解析。
+- 完善联网搜索引用与来源详情：
+  - `SearchResult` 增加稳定 `index` 字段，作为回答 citation、tool result JSON 和消息详情的统一编号。
+  - 多轮搜索结果进入 `mergeSearchSources()` 后按 URL 去重并分配全局 1-based index，避免不同工具轮重复 `[1]`。
+  - RDB 继续使用原有 `rank` 列按 0-based 持久化，读取时转回展示 index，兼容已有会话来源。
+  - Markdown WebView 增加 citation 注入，正文中的 `[1]`、`[2]` 会渲染为可点击引用。
+  - `markdownBridge.openCitation()` 根据 citation index 打开对应来源的 Navigation 内置浏览器页。
+  - 消息详情来源列表展示标题、host、snippet，并支持复制单条来源链接。
+  - 新增单元测试覆盖来源合并编号、tool JSON index 透传和 Markdown citation bridge。
 
 ### 验证
 
@@ -205,4 +213,4 @@
 
 1. 继续完善设置页中的 provider 错误说明、余额查询和数据清理入口。
 2. 增加数据清理与导出入口，包括清空会话、导出 Markdown / JSON 和清除本地设置。
-3. 为联网搜索增加引用编号一致性处理，让回答中的 `[1]`、`[2]` 与消息详情来源稳定对应。
+3. 优化搜索 provider 可选项，为后续 Brave / Bing / Serper provider 预留配置结构。

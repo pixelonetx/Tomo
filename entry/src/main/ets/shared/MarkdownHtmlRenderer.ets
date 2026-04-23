@@ -1,7 +1,14 @@
 const RAWFILE_BASE: string = 'resource://rawfile/markdown/';
 
-export function buildMarkdownHtml(markdown: string, fontSize: number): string {
+export interface MarkdownCitation {
+  index: number;
+  title: string;
+  url: string;
+}
+
+export function buildMarkdownHtml(markdown: string, fontSize: number, citations: MarkdownCitation[] = []): string {
   const source: string = toScriptString(normalizeTaskListMarkers(markdown));
+  const citationSource: string = JSON.stringify(citations).replace(/<\/script/gi, '<\\/script');
   const bodyFontSize: number = clampFontSize(fontSize);
   const codeFontSize: number = Math.max(bodyFontSize - 1, 12);
   return '<!DOCTYPE html>' +
@@ -13,7 +20,7 @@ export function buildMarkdownHtml(markdown: string, fontSize: number): string {
     '<script src="' + RAWFILE_BASE + 'markdown-it.min.js"></script>' +
     '<script src="' + RAWFILE_BASE + 'katex.min.js"></script>' +
     '<script src="' + RAWFILE_BASE + 'auto-render.min.js"></script>' +
-    '<script>' + buildRendererScript(source) + '</script>' +
+    '<script>' + buildRendererScript(source, citationSource) + '</script>' +
     '</body></html>';
 }
 
@@ -117,25 +124,30 @@ function buildRendererCss(fontSize: number, codeFontSize: number): string {
     '.code-lang{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.copy-code{border:0;background:transparent;color:var(--muted);font:inherit;padding:6px 2px}' +
     'pre{margin:0;padding:12px;overflow:auto;-webkit-overflow-scrolling:touch}' +
     '.katex-display{overflow-x:auto;overflow-y:hidden;padding:4px 0;margin:10px 0}.katex{font-size:1.04em}.katex-error{color:#b91c1c}' +
-    'img{max-width:100%;height:auto;border-radius:6px}';
+    'img{max-width:100%;height:auto;border-radius:6px}' +
+    '.citation{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;margin:0 1px;border:1px solid var(--border);border-radius:999px;color:var(--link);font-size:.78em;line-height:18px;text-decoration:none;vertical-align:baseline;background:color-mix(in srgb,var(--code),transparent 18%)}' +
+    '.citation:active{text-decoration:none;filter:brightness(.96)}';
 }
 
-function buildRendererScript(source: string): string {
+function buildRendererScript(source: string, citationSource: string): string {
   return '(function(){' +
     'var source=' + source + ';' +
+    'var citations=' + citationSource + ';' +
+    'var citationMap={};for(var ci=0;ci<citations.length;ci++){citationMap[String(citations[ci].index)]=citations[ci];}' +
     'function initMarkdown(){var md=window.markdownit({html:false,linkify:true,typographer:true,breaks:true});' +
     'var defaultLink=md.renderer.rules.link_open||function(tokens,idx,options,env,self){return self.renderToken(tokens,idx,options);};' +
     'md.renderer.rules.link_open=function(tokens,idx,options,env,self){var token=tokens[idx];var target=token.attrIndex("target");if(target<0){token.attrPush(["target","_blank"]);}else{token.attrs[target][1]="_blank";}var rel=token.attrIndex("rel");if(rel<0){token.attrPush(["rel","noopener noreferrer"]);}else{token.attrs[rel][1]="noopener noreferrer";}return defaultLink(tokens,idx,options,env,self);};' +
     'md.renderer.rules.fence=function(tokens,idx){var token=tokens[idx];var info=token.info?md.utils.escapeHtml(token.info.trim().split(/\\s+/g)[0]):"text";var code=md.utils.escapeHtml(token.content);return "<div class=\\"code-block\\"><div class=\\"code-head\\"><span class=\\"code-lang\\">"+(info||"text")+"</span><button class=\\"copy-code\\" type=\\"button\\">Copy</button></div><pre><code>"+code+"</code></pre></div>";};' +
     'return md;}' +
+    'function enhanceCitations(root){if(!citations.length){return;}var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:function(node){var p=node.parentElement;if(!p){return NodeFilter.FILTER_REJECT;}var tag=p.tagName?p.tagName.toLowerCase():"";if(tag==="code"||tag==="pre"||tag==="a"||tag==="script"||tag==="style"){return NodeFilter.FILTER_REJECT;}return /\\[(\\d+)\\]/.test(node.nodeValue||"")?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;}});var nodes=[];while(walker.nextNode()){nodes.push(walker.currentNode);}for(var i=0;i<nodes.length;i++){var node=nodes[i];var text=node.nodeValue||"";var frag=document.createDocumentFragment();var last=0;text.replace(/\\[(\\d+)\\]/g,function(match,num,offset){frag.appendChild(document.createTextNode(text.slice(last,offset)));var cite=citationMap[String(Number(num))];if(cite){var a=document.createElement("a");a.href=cite.url;a.className="citation";a.setAttribute("data-citation-index",String(cite.index));a.setAttribute("title",cite.title||cite.url);a.textContent="["+cite.index+"]";frag.appendChild(a);}else{frag.appendChild(document.createTextNode(match));}last=offset+match.length;return match;});frag.appendChild(document.createTextNode(text.slice(last)));node.parentNode.replaceChild(frag,node);}}' +
     'function copyText(text,button){function done(ok){button.textContent=ok?"Copied":"Copy";setTimeout(function(){button.textContent="Copy";},1200);} if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){done(true);}).catch(function(){fallback();});}else{fallback();} function fallback(){var area=document.createElement("textarea");area.value=text;area.setAttribute("readonly","");area.style.position="fixed";area.style.opacity="0";document.body.appendChild(area);area.select();var ok=false;try{ok=document.execCommand("copy");}catch(e){}document.body.removeChild(area);done(ok);}}' +
-    'function render(){var root=document.getElementById("content");var md=initMarkdown();root.innerHTML=md.render(source);if(window.renderMathInElement){window.renderMathInElement(root,{delimiters:[{left:"$$",right:"$$",display:true},{left:"\\\\[",right:"\\\\]",display:true},{left:"\\\\(",right:"\\\\)",display:false},{left:"$",right:"$",display:false}],throwOnError:false,ignoredTags:["script","noscript","style","textarea","pre","code"]});}}' +
+    'function render(){var root=document.getElementById("content");var md=initMarkdown();root.innerHTML=md.render(source);enhanceCitations(root);if(window.renderMathInElement){window.renderMathInElement(root,{delimiters:[{left:"$$",right:"$$",display:true},{left:"\\\\[",right:"\\\\]",display:true},{left:"\\\\(",right:"\\\\)",display:false},{left:"$",right:"$",display:false}],throwOnError:false,ignoredTags:["script","noscript","style","textarea","pre","code"]});}}' +
     'function measureHeight(){var body=document.body;var doc=document.documentElement;var root=document.getElementById("content");var height=Math.max(body?body.scrollHeight:0,doc?doc.scrollHeight:0,root?root.scrollHeight:0,root?root.offsetHeight:0);if(window.markdownBridge&&window.markdownBridge.updateMarkdownHeight){window.markdownBridge.updateMarkdownHeight(String(Math.ceil(height)));}}' +
     'function scheduleMeasure(){measureHeight();setTimeout(measureHeight,40);setTimeout(measureHeight,160);setTimeout(measureHeight,480);}' +
     'if(window.ResizeObserver){new ResizeObserver(scheduleMeasure).observe(document.documentElement);}' +
     'if(window.MutationObserver){new MutationObserver(scheduleMeasure).observe(document.getElementById("content"),{childList:true,subtree:true,characterData:true,attributes:true});}' +
     'window.addEventListener("load",scheduleMeasure);window.addEventListener("resize",scheduleMeasure);' +
-    'document.addEventListener("click",function(event){var target=event.target;if(!target){return;}var link=target.closest?target.closest("a[href]"):null;if(link){event.preventDefault();var href=link.getAttribute("href")||"";var title=(link.textContent||link.getAttribute("title")||href).trim();if(window.markdownBridge&&window.markdownBridge.openLink){window.markdownBridge.openLink(href,title);}return;}if(target.classList&&target.classList.contains("copy-code")){var block=target.closest(".code-block");var code=block?block.querySelector("code"):null;copyText(code?code.textContent:"",target);}});' +
+    'document.addEventListener("click",function(event){var target=event.target;if(!target){return;}var link=target.closest?target.closest("a[href]"):null;if(link){event.preventDefault();var citeIndex=link.getAttribute("data-citation-index")||"";if(citeIndex&&window.markdownBridge&&window.markdownBridge.openCitation){window.markdownBridge.openCitation(citeIndex);return;}var href=link.getAttribute("href")||"";var title=(link.textContent||link.getAttribute("title")||href).trim();if(window.markdownBridge&&window.markdownBridge.openLink){window.markdownBridge.openLink(href,title);}return;}if(target.classList&&target.classList.contains("copy-code")){var block=target.closest(".code-block");var code=block?block.querySelector("code"):null;copyText(code?code.textContent:"",target);}});' +
     'render();' +
     'scheduleMeasure();' +
     '})();';

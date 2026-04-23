@@ -233,7 +233,7 @@ export function createSearchToolResultJson(query: string, results: SearchResult[
   for (let i = 0; i < normalized.length; i++) {
     const result: SearchResult = normalized[i];
     items.push({
-      index: i + 1,
+      index: result.index > 0 ? result.index : i + 1,
       title: result.title,
       url: result.url,
       snippet: result.snippet,
@@ -286,6 +286,7 @@ export function parseTavilySearchResponse(text: string, maxResults: number): Sea
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         results.push({
+          index: 0,
           title: stringField(item, 'title'),
           url: stringField(item, 'url'),
           snippet: firstNonEmptyString(item, 'content', 'snippet'),

@@ -2,7 +2,7 @@ import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from
 import { ApiMessage, ApiToolDefinition, ModelMode, getDeepSeekModelId } from '../main/ets/models/ApiModels';
 import { MessageRole, createConversationTitle, createMessage } from '../main/ets/models/ChatModels';
 import { createDefaultSettings } from '../main/ets/models/SettingsModels';
-import { SearchResult, normalizeSearchResults } from '../main/ets/models/SearchModels';
+import { SearchResult, mergeSearchSources, normalizeSearchResults } from '../main/ets/models/SearchModels';
 import { DeepSeekService, parseBalanceResponse, parseChatCompletionResponse, parseModelListResponse } from '../main/ets/services/DeepSeekService';
 import { mapDeepSeekError, parseSseChunk } from '../main/ets/services/DeepSeekSseParser';
 import { getDisplayUrl, normalizeWebUrl } from '../main/ets/services/BrowserService';
@@ -133,14 +133,27 @@ export default function localUnitTest() {
 
     it('deduplicates and limits search results', 0, () => {
       const results = normalizeSearchResults([
-        { title: 'A', url: 'https://example.com/a', snippet: 'alpha', publishedAt: '', source: 'x' },
-        { title: 'A again', url: 'https://example.com/a', snippet: 'duplicate', publishedAt: '', source: 'x' },
-        { title: '', url: 'https://example.com/empty-title', snippet: 'empty title', publishedAt: '', source: 'x' },
-        { title: 'B', url: 'https://example.com/b', snippet: 'beta', publishedAt: '', source: 'x' }
+        { index: 0, title: 'A', url: 'https://example.com/a', snippet: 'alpha', publishedAt: '', source: 'x' },
+        { index: 0, title: 'A again', url: 'https://example.com/a', snippet: 'duplicate', publishedAt: '', source: 'x' },
+        { index: 0, title: '', url: 'https://example.com/empty-title', snippet: 'empty title', publishedAt: '', source: 'x' },
+        { index: 0, title: 'B', url: 'https://example.com/b', snippet: 'beta', publishedAt: '', source: 'x' }
       ], 5);
       expect(results.length).assertEqual(2);
       expect(results[0].title).assertEqual('A');
       expect(results[1].url).assertEqual('https://example.com/b');
+    });
+
+    it('merges search sources with stable citation indexes', 0, () => {
+      const merged = mergeSearchSources(
+        [{ index: 1, title: 'A', url: 'https://example.com/a', snippet: 'alpha', publishedAt: '', source: 'example.com' }],
+        [
+          { index: 0, title: 'A again', url: 'https://example.com/a', snippet: 'duplicate', publishedAt: '', source: 'example.com' },
+          { index: 0, title: 'B', url: 'https://example.com/b', snippet: 'beta', publishedAt: '', source: 'example.com' }
+        ]
+      );
+      expect(merged.length).assertEqual(2);
+      expect(merged[0].index).assertEqual(1);
+      expect(merged[1].index).assertEqual(2);
     });
 
     it('maps DeepSeek http errors to user-facing copy', 0, () => {
@@ -180,11 +193,11 @@ export default function localUnitTest() {
       expect(parseWebSearchArguments('{"query":"","freshness":"year"}').ok).assertFalse();
 
       const results: SearchResult[] = [
-        { title: 'Docs', url: 'https://api-docs.deepseek.com/', snippet: 'DeepSeek API docs', publishedAt: '', source: 'DeepSeek' }
+        { index: 7, title: 'Docs', url: 'https://api-docs.deepseek.com/', snippet: 'DeepSeek API docs', publishedAt: '', source: 'DeepSeek' }
       ];
       const resultJson: string = createSearchToolResultJson(parsed.arguments.query, results);
       expect(resultJson.indexOf('"results"') >= 0).assertTrue();
-      expect(resultJson.indexOf('"index":1') >= 0).assertTrue();
+      expect(resultJson.indexOf('"index":7') >= 0).assertTrue();
       expect(createFailedToolResultJson('search_failed', 'no provider').indexOf('search_failed') >= 0).assertTrue();
       expect(createToolCallRecord('msg_1', 'call_1', 'web_search', '{}', resultJson, 'success').messageId).assertEqual('msg_1');
     });
@@ -198,10 +211,15 @@ export default function localUnitTest() {
     });
 
     it('builds markdown html with local renderer assets and math support', 0, () => {
-      const html = buildMarkdownHtml('# Title\n\n$$E=mc^2$$\n\n```ts\nlet a = 1;\n```', 15);
+      const html = buildMarkdownHtml('# Title\n\nSource [1]\n\n$$E=mc^2$$\n\n```ts\nlet a = 1;\n```', 15, [
+        { index: 1, title: 'DeepSeek Docs', url: 'https://api-docs.deepseek.com/' }
+      ]);
       expect(html.indexOf('markdown-it.min.js') >= 0).assertTrue();
       expect(html.indexOf('katex.min.js') >= 0).assertTrue();
       expect(html.indexOf('auto-render.min.js') >= 0).assertTrue();
+      expect(html.indexOf('citationMap') >= 0).assertTrue();
+      expect(html.indexOf('data-citation-index') >= 0).assertTrue();
+      expect(html.indexOf('markdownBridge.openCitation') >= 0).assertTrue();
       expect(html.indexOf('renderMathInElement') >= 0).assertTrue();
       expect(html.indexOf('copy-code') >= 0).assertTrue();
       expect(html.indexOf('markdownBridge.updateMarkdownHeight') >= 0).assertTrue();

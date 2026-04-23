@@ -257,6 +257,7 @@ export class ConversationRdbService {
       );
       while (resultSet.goToNextRow()) {
         sources.push({
+          index: resultSet.getLong(resultSet.getColumnIndex('rank')) + 1,
           title: resultSet.getString(resultSet.getColumnIndex('title')),
           url: resultSet.getString(resultSet.getColumnIndex('url')),
           snippet: resultSet.getString(resultSet.getColumnIndex('snippet')),
@@ -320,7 +321,7 @@ export class ConversationRdbService {
       await this.executeSql(
         store,
         'INSERT INTO message_search_sources (id, message_id, tool_call_id, title, url, snippet, published_at, source, rank, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [`src_${message.id}_${i}`, message.id, '', source.title, source.url, source.snippet, source.publishedAt, source.source, i, Date.now()]
+        [`src_${message.id}_${i}`, message.id, '', source.title, source.url, source.snippet, source.publishedAt, source.source, source.index > 0 ? source.index - 1 : i, Date.now()]
       );
     }
     for (let i = 0; i < message.toolCalls.length; i++) {

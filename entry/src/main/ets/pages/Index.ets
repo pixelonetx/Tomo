@@ -160,6 +160,7 @@ struct Index {
           MarkdownMessageView({
             content: message.content,
             fontSize: this.vm.fontSize,
+            sources: message.searchSources,
             onOpenLink: (url: string, title: string): void => {
               this.openWebLink(url, title);
             }
@@ -1002,20 +1003,58 @@ struct Index {
 
   @Builder
   private SourceList() {
-    Column({ space: 10 }) {
+      Column({ space: 10 }) {
       ForEach(this.getSelectedMessageSources(), (source: SearchResult, index: number) => {
-        Button(`[${index + 1}] ${source.title}`)
+        Column({ space: 8 }) {
+          Row({ space: 8 }) {
+            Button(`[${source.index > 0 ? source.index : index + 1}] ${source.title}`)
+              .layoutWeight(1)
+              .height(40)
+              .fontSize(13)
+              .fontColor($r('app.color.text_primary'))
+              .backgroundColor(Color.Transparent)
+              .border({ width: 1, color: $r('app.color.divider') })
+              .borderRadius(8)
+              .onClick((): void => {
+                this.showMessageDetailSheet = false;
+                this.openWebLink(source.url, source.title);
+              })
+
+            Button('Copy')
+              .width(72)
+              .height(40)
+              .fontSize(12)
+              .fontColor($r('app.color.text_primary'))
+              .backgroundColor(Color.Transparent)
+              .border({ width: 1, color: $r('app.color.divider') })
+              .borderRadius(8)
+              .onClick((): void => {
+                this.copyText(source.url);
+              })
+          }
           .width('100%')
-          .height(40)
-          .fontSize(13)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor(Color.Transparent)
-          .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(8)
-          .onClick((): void => {
-            this.showMessageDetailSheet = false;
-            this.openWebLink(source.url, source.title);
-          })
+
+          Text(source.source.length > 0 ? source.source : this.getHostFromUrl(source.url))
+            .fontSize(12)
+            .fontColor($r('app.color.text_secondary'))
+            .width('100%')
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+          if (source.snippet.length > 0) {
+            Text(source.snippet)
+              .fontSize(12)
+              .fontColor($r('app.color.text_secondary'))
+              .lineHeight(18)
+              .width('100%')
+              .maxLines(3)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+        }
+        .width('100%')
+        .padding(10)
+        .border({ width: 1, color: $r('app.color.divider') })
+        .borderRadius(8)
       }, (source: SearchResult): string => source.url)
     }
     .width('100%')
@@ -1144,7 +1183,11 @@ struct Index {
     let text: string = '';
     for (let i = 0; i < message.searchSources.length; i++) {
       const source = message.searchSources[i];
-      text += `[${i + 1}] ${source.title}\n${source.url}`;
+      const index: number = source.index > 0 ? source.index : i + 1;
+      text += `[${index}] ${source.title}\n${source.url}`;
+      if (source.snippet.length > 0) {
+        text += `\n${source.snippet}`;
+      }
       if (i < message.searchSources.length - 1) {
         text += '\n\n';
       }
@@ -1180,5 +1223,14 @@ struct Index {
       'Bundled license files:\n' +
       'resources/rawfile/markdown/LICENSE-markdown-it.txt\n' +
       'resources/rawfile/markdown/LICENSE-katex.txt';
+  }
+
+  private getHostFromUrl(url: string): string {
+    const noProtocol: string = url.replace(/^https?:\/\//i, '');
+    const slashIndex: number = noProtocol.indexOf('/');
+    if (slashIndex < 0) {
+      return noProtocol;
+    }
+    return noProtocol.substring(0, slashIndex);
   }
 }

@@ -1,12 +1,14 @@
 import { BusinessError } from '@kit.BasicServicesKit';
 import { webview } from '@kit.ArkWeb';
+import { SearchResult } from '../models/SearchModels';
 import { normalizeWebUrl } from '../services/BrowserService';
-import { buildMarkdownHtml, estimateMarkdownHeight } from '../shared/MarkdownHtmlRenderer';
+import { MarkdownCitation, buildMarkdownHtml, estimateMarkdownHeight } from '../shared/MarkdownHtmlRenderer';
 
 @Component
 export struct MarkdownMessageView {
   @Prop @Watch('onContentChanged') content: string;
   @Prop @Watch('onFontSizeChanged') fontSize: number;
+  @Prop @Watch('onSourcesChanged') sources: SearchResult[] = [];
   onOpenLink: (url: string, title: string) => void = (_url: string, _title: string): void => {
   };
   @State renderedHeight: number = 0;
@@ -20,6 +22,10 @@ export struct MarkdownMessageView {
 
   onFontSizeChanged(): void {
     this.renderedHeight = estimateMarkdownHeight(this.content, this.fontSize);
+    this.loadMarkdown();
+  }
+
+  onSourcesChanged(): void {
     this.loadMarkdown();
   }
 
@@ -57,9 +63,24 @@ export struct MarkdownMessageView {
     this.onOpenLink(url, titleText.trim());
   }
 
+  openCitation(indexText: string): void {
+    const index: number = Number.parseInt(indexText);
+    if (Number.isNaN(index)) {
+      return;
+    }
+    for (let i = 0; i < this.sources.length; i++) {
+      const source: SearchResult = this.sources[i];
+      const sourceIndex: number = source.index > 0 ? source.index : i + 1;
+      if (sourceIndex === index) {
+        this.onOpenLink(source.url, source.title);
+        return;
+      }
+    }
+  }
+
   private registerHeightBridge(): void {
     try {
-      this.controller.registerJavaScriptProxy(this, 'markdownBridge', ['updateMarkdownHeight', 'openLink']);
+      this.controller.registerJavaScriptProxy(this, 'markdownBridge', ['updateMarkdownHeight', 'openLink', 'openCitation']);
     } catch (err) {
       const error = err as BusinessError;
       console.error(`Markdown height bridge registration failed. code=${error.code}, message=${error.message}`);
@@ -72,7 +93,7 @@ export struct MarkdownMessageView {
     }
     try {
       this.controller.loadData(
-        buildMarkdownHtml(this.content, this.fontSize),
+        buildMarkdownHtml(this.content, this.fontSize, this.getCitations()),
         'text/html',
         'UTF-8',
         ' ',
@@ -82,5 +103,18 @@ export struct MarkdownMessageView {
       const error = err as BusinessError;
       console.error(`Markdown render failed. code=${error.code}, message=${error.message}`);
     }
+  }
+
+  private getCitations(): MarkdownCitation[] {
+    const citations: MarkdownCitation[] = [];
+    for (let i = 0; i < this.sources.length; i++) {
+      const source: SearchResult = this.sources[i];
+      citations.push({
+        index: source.index > 0 ? source.index : i + 1,
+        title: source.title,
+        url: source.url
+      });
+    }
+    return citations;
   }
 }
