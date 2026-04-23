@@ -291,5 +291,34 @@ export default function localUnitTest() {
       expect(vm.getAssistantBranchCount(secondAssistant)).assertEqual(2);
       expect(vm.getAssistantBranchPosition(secondAssistant)).assertEqual(2);
     });
+
+    it('keeps downstream messages scoped to the active branch path', 0, () => {
+      const vm = new ChatViewModel();
+      const conversation: Conversation = createConversation('Branch path');
+      const rootUser = createMessage(conversation.id, MessageRole.USER, 'root');
+      const firstAssistant = createMessage(conversation.id, MessageRole.ASSISTANT, 'first');
+      firstAssistant.branchParentId = rootUser.id;
+      firstAssistant.branchIndex = 1;
+      firstAssistant.branchActive = false;
+      firstAssistant.pathParentId = rootUser.id;
+      const firstFollowUp = createMessage(conversation.id, MessageRole.USER, 'hidden child');
+      firstFollowUp.pathParentId = firstAssistant.id;
+      const secondAssistant = createMessage(conversation.id, MessageRole.ASSISTANT, 'second');
+      secondAssistant.branchParentId = rootUser.id;
+      secondAssistant.branchIndex = 2;
+      secondAssistant.branchActive = true;
+      secondAssistant.pathParentId = rootUser.id;
+      const secondFollowUp = createMessage(conversation.id, MessageRole.USER, 'visible child');
+      secondFollowUp.pathParentId = secondAssistant.id;
+      conversation.messages = [rootUser, firstAssistant, firstFollowUp, secondAssistant, secondFollowUp];
+      vm.conversations = [conversation];
+      vm.currentConversationId = conversation.id;
+      vm.messages = conversation.messages;
+      const visible = vm.getVisibleMessages();
+      expect(visible.length).assertEqual(3);
+      expect(visible[0].content).assertEqual('root');
+      expect(visible[1].content).assertEqual('second');
+      expect(visible[2].content).assertEqual('visible child');
+    });
   });
 }

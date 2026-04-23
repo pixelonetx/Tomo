@@ -36,6 +36,7 @@ export class ChatMessage {
   branchParentId: string = '';
   branchIndex: number = 0;
   branchActive: boolean = true;
+  pathParentId: string = '';
   createdAt: number = 0;
   updatedAt: number = 0;
   searchSources: SearchResult[] = [];

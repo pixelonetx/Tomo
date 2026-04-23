@@ -5,7 +5,7 @@ import { ChatMessage, Conversation, MessageRole, SendStatus } from '../models/Ch
 import { SearchResult, ToolCallRecord } from '../models/SearchModels';
 
 const DB_NAME: string = 'deepseek_chat.db';
-const DB_VERSION: number = 2;
+const DB_VERSION: number = 3;
 
 const SQL_CREATE_CONVERSATIONS: string =
   'CREATE TABLE IF NOT EXISTS conversations (' +
@@ -37,6 +37,7 @@ const SQL_CREATE_MESSAGES: string =
     'branch_parent_id TEXT NOT NULL DEFAULT \'\',' +
     'branch_index INTEGER NOT NULL DEFAULT 0,' +
     'branch_active INTEGER NOT NULL DEFAULT 1,' +
+    'path_parent_id TEXT NOT NULL DEFAULT \'\',' +
     'created_at INTEGER NOT NULL,' +
     'updated_at INTEGER NOT NULL' +
   ')';
@@ -121,8 +122,8 @@ export class ConversationRdbService {
       store,
       'INSERT OR REPLACE INTO messages (' +
         'id, conversation_id, role, content, reasoning_content, status, error_message, response_id, model, finish_reason, system_fingerprint, ' +
-        'prompt_tokens, completion_tokens, total_tokens, reasoning_tokens, cache_hit_tokens, cache_miss_tokens, branch_parent_id, branch_index, branch_active, created_at, updated_at' +
-      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'prompt_tokens, completion_tokens, total_tokens, reasoning_tokens, cache_hit_tokens, cache_miss_tokens, branch_parent_id, branch_index, branch_active, path_parent_id, created_at, updated_at' +
+      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       this.messageArgs(message)
     );
     await this.replaceMessageDetails(message);
@@ -135,7 +136,7 @@ export class ConversationRdbService {
       'UPDATE messages SET ' +
         'conversation_id = ?, role = ?, content = ?, reasoning_content = ?, status = ?, error_message = ?, response_id = ?, model = ?, ' +
         'finish_reason = ?, system_fingerprint = ?, prompt_tokens = ?, completion_tokens = ?, total_tokens = ?, reasoning_tokens = ?, ' +
-        'cache_hit_tokens = ?, cache_miss_tokens = ?, branch_parent_id = ?, branch_index = ?, branch_active = ?, created_at = ?, updated_at = ? WHERE id = ?',
+        'cache_hit_tokens = ?, cache_miss_tokens = ?, branch_parent_id = ?, branch_index = ?, branch_active = ?, path_parent_id = ?, created_at = ?, updated_at = ? WHERE id = ?',
       [
         message.conversationId,
         message.role,
@@ -156,6 +157,7 @@ export class ConversationRdbService {
         message.branchParentId,
         message.branchIndex,
         message.branchActive ? 1 : 0,
+        message.pathParentId,
         message.createdAt,
         message.updatedAt,
         message.id
@@ -244,6 +246,7 @@ export class ConversationRdbService {
         message.branchParentId = resultSet.getString(resultSet.getColumnIndex('branch_parent_id'));
         message.branchIndex = resultSet.getLong(resultSet.getColumnIndex('branch_index'));
         message.branchActive = resultSet.getLong(resultSet.getColumnIndex('branch_active')) === 1;
+        message.pathParentId = resultSet.getString(resultSet.getColumnIndex('path_parent_id'));
         message.createdAt = resultSet.getLong(resultSet.getColumnIndex('created_at'));
         message.updatedAt = resultSet.getLong(resultSet.getColumnIndex('updated_at'));
         message.searchSources = await this.loadSearchSources(message.id);
@@ -373,6 +376,7 @@ export class ConversationRdbService {
       message.branchParentId,
       message.branchIndex,
       message.branchActive ? 1 : 0,
+      message.pathParentId,
       message.createdAt,
       message.updatedAt
     ];
@@ -419,6 +423,7 @@ export class ConversationRdbService {
     await this.executeOptionalSql(store, 'ALTER TABLE messages ADD COLUMN branch_parent_id TEXT NOT NULL DEFAULT \'\'');
     await this.executeOptionalSql(store, 'ALTER TABLE messages ADD COLUMN branch_index INTEGER NOT NULL DEFAULT 0');
     await this.executeOptionalSql(store, 'ALTER TABLE messages ADD COLUMN branch_active INTEGER NOT NULL DEFAULT 1');
+    await this.executeOptionalSql(store, 'ALTER TABLE messages ADD COLUMN path_parent_id TEXT NOT NULL DEFAULT \'\'');
   }
 
   private async executeOptionalSql(store: relationalStore.RdbStore, sql: string): Promise<void> {
