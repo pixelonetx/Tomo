@@ -1,5 +1,7 @@
 import { common } from '@kit.AbilityKit';
 import { pasteboard } from '@kit.BasicServicesKit';
+import { util } from '@kit.ArkTS';
+import { fileIo, picker } from '@kit.CoreFileKit';
 import { APP_NAME } from '../shared/Constants';
 import { MarkdownMessageView } from '../components/MarkdownMessageView';
 import { ModelMode } from '../models/ApiModels';
@@ -18,6 +20,8 @@ struct Index {
   @State showApiKeySheet: boolean = false;
   @State showMessageDetailSheet: boolean = false;
   @State showAboutSheet: boolean = false;
+  @State showDangerConfirmSheet: boolean = false;
+  @State pendingDangerAction: string = '';
   @State selectedMessageId: string = '';
   @State expandedReasoningIds: string[] = [];
   @State vm: ChatViewModel = new ChatViewModel();
@@ -71,6 +75,14 @@ struct Index {
       dragBar: true,
       onDisappear: (): void => {
         this.showAboutSheet = false;
+      }
+    })
+    .bindSheet(this.showDangerConfirmSheet, this.DangerConfirmSheetContent(), {
+      height: SheetSize.FIT_CONTENT,
+      showClose: true,
+      dragBar: true,
+      onDisappear: (): void => {
+        this.showDangerConfirmSheet = false;
       }
     })
   }
@@ -738,6 +750,119 @@ struct Index {
         }
 
         ListItem() {
+          this.SettingsSectionTitle('Account')
+        }
+        ListItem() {
+          Column({ space: 10 }) {
+            Text(this.vm.getProviderStatusText())
+              .fontSize(13)
+              .fontColor($r('app.color.text_secondary'))
+              .width('100%')
+            Row({ space: 10 }) {
+              Button('Check balance')
+                .layoutWeight(1)
+                .height(40)
+                .fontColor($r('app.color.text_primary'))
+                .backgroundColor(Color.Transparent)
+                .border({ width: 1, color: $r('app.color.divider') })
+                .borderRadius(8)
+                .onClick((): void => {
+                  this.vm.checkBalance();
+                })
+              Button('Copy status')
+                .layoutWeight(1)
+                .height(40)
+                .fontColor($r('app.color.text_primary'))
+                .backgroundColor(Color.Transparent)
+                .border({ width: 1, color: $r('app.color.divider') })
+                .borderRadius(8)
+                .onClick((): void => {
+                  this.copyText(this.vm.getProviderStatusText());
+                })
+            }
+            .width('100%')
+            if (this.vm.balanceMessage.length > 0) {
+              Text(this.vm.balanceMessage)
+                .fontSize(13)
+                .fontColor($r('app.color.text_secondary'))
+                .lineHeight(19)
+                .width('100%')
+            }
+          }
+          .width('100%')
+        }
+
+        ListItem() {
+          this.SettingsSectionTitle('Data')
+        }
+        ListItem() {
+          Column({ space: 10 }) {
+            Text(this.vm.getConversationCountText())
+              .fontSize(13)
+              .fontColor($r('app.color.text_secondary'))
+              .width('100%')
+            Row({ space: 10 }) {
+              Button('Export Markdown')
+                .layoutWeight(1)
+                .height(40)
+                .fontSize(13)
+                .fontColor($r('app.color.text_primary'))
+                .backgroundColor(Color.Transparent)
+                .border({ width: 1, color: $r('app.color.divider') })
+                .borderRadius(8)
+                .onClick((): void => {
+                  this.exportCurrentConversation('markdown');
+                })
+              Button('Export JSON')
+                .layoutWeight(1)
+                .height(40)
+                .fontSize(13)
+                .fontColor($r('app.color.text_primary'))
+                .backgroundColor(Color.Transparent)
+                .border({ width: 1, color: $r('app.color.divider') })
+                .borderRadius(8)
+                .onClick((): void => {
+                  this.exportCurrentConversation('json');
+                })
+            }
+            .width('100%')
+            Row({ space: 10 }) {
+              Button('Clear chats')
+                .layoutWeight(1)
+                .height(40)
+                .fontSize(13)
+                .fontColor($r('app.color.text_primary'))
+                .backgroundColor(Color.Transparent)
+                .border({ width: 1, color: $r('app.color.divider') })
+                .borderRadius(8)
+                .onClick((): void => {
+                  this.showDangerConfirm('chats');
+                })
+              Button('Clear settings')
+                .layoutWeight(1)
+                .height(40)
+                .fontSize(13)
+                .fontColor($r('app.color.text_primary'))
+                .backgroundColor(Color.Transparent)
+                .border({ width: 1, color: $r('app.color.divider') })
+                .borderRadius(8)
+                .onClick((): void => {
+                  this.showDangerConfirm('settings');
+                })
+            }
+            .width('100%')
+            if (this.vm.settingsMessage.length > 0) {
+              Text(this.vm.settingsMessage)
+                .fontSize(13)
+                .fontColor($r('app.color.text_secondary'))
+                .lineHeight(19)
+                .width('100%')
+            }
+          }
+          .width('100%')
+        }
+
+        ListItem() {
           Button('About & licenses')
             .width('100%')
             .height(42)
@@ -857,6 +982,51 @@ struct Index {
     .padding(12)
     .border({ width: 1, color: $r('app.color.divider') })
     .borderRadius(8)
+  }
+
+  @Builder
+  private DangerConfirmSheetContent() {
+    Column({ space: 16 }) {
+      Text(this.getDangerConfirmTitle())
+        .fontSize(20)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .width('100%')
+
+      Text(this.getDangerConfirmMessage())
+        .fontSize(13)
+        .fontColor($r('app.color.text_secondary'))
+        .lineHeight(19)
+        .width('100%')
+
+      Row({ space: 10 }) {
+        Button('Cancel')
+          .layoutWeight(1)
+          .height(42)
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor(Color.Transparent)
+          .border({ width: 1, color: $r('app.color.divider') })
+          .borderRadius(10)
+          .onClick((): void => {
+            this.showDangerConfirmSheet = false;
+            this.pendingDangerAction = '';
+          })
+
+        Button(this.getDangerConfirmActionText())
+          .layoutWeight(1)
+          .height(42)
+          .fontColor($r('app.color.text_on_primary'))
+          .backgroundColor($r('app.color.button_primary'))
+          .borderRadius(10)
+          .onClick((): void => {
+            this.runDangerAction();
+          })
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 22, bottom: 24 })
+    .backgroundColor($r('app.color.page_background'))
   }
 
   @Builder
@@ -982,12 +1152,91 @@ struct Index {
     }
   }
 
+  private async exportCurrentConversation(format: string): Promise<void> {
+    if (format === 'json') {
+      await this.saveTextFile(this.vm.getCurrentConversationJson(), this.vm.getCurrentConversationExportName('json'));
+      return;
+    }
+    await this.saveTextFile(this.vm.getCurrentConversationMarkdown(), this.vm.getCurrentConversationExportName('md'));
+  }
+
+  private async saveTextFile(content: string, fileName: string): Promise<void> {
+    if (content.length === 0) {
+      this.showToast('Nothing to export');
+      return;
+    }
+    let file: fileIo.File | null = null;
+    try {
+      const context = this.getUIContext().getHostContext() as common.Context;
+      const options = new picker.DocumentSaveOptions();
+      options.newFileNames = [fileName];
+      const documentPicker = new picker.DocumentViewPicker(context);
+      const uris: string[] = await documentPicker.save(options);
+      if (uris.length === 0) {
+        return;
+      }
+      file = fileIo.openSync(uris[0], fileIo.OpenMode.CREATE | fileIo.OpenMode.READ_WRITE);
+      const encoder = util.TextEncoder.create('utf-8');
+      const bytes: Uint8Array = encoder.encodeInto(content);
+      fileIo.writeSync(file.fd, bytes.buffer);
+      this.showToast('Exported');
+    } catch (err) {
+      this.showToast('Export failed');
+    } finally {
+      if (file !== null) {
+        try {
+          fileIo.closeSync(file.fd);
+        } catch (_err) {
+        }
+      }
+    }
+  }
+
   private showToast(message: string): void {
     this.getUIContext().getPromptAction().openToast({
       message: message,
       duration: 1600
     }).catch((_err: Error): void => {
     });
+  }
+
+  private showDangerConfirm(action: string): void {
+    this.pendingDangerAction = action;
+    this.showDangerConfirmSheet = true;
+  }
+
+  private getDangerConfirmTitle(): string {
+    if (this.pendingDangerAction === 'settings') {
+      return 'Clear settings';
+    }
+    return 'Clear chats';
+  }
+
+  private getDangerConfirmMessage(): string {
+    if (this.pendingDangerAction === 'settings') {
+      return 'Reset local settings and remove encrypted DeepSeek and Tavily keys?';
+    }
+    return 'Delete all local conversations on this device?';
+  }
+
+  private getDangerConfirmActionText(): string {
+    if (this.pendingDangerAction === 'settings') {
+      return 'Clear settings';
+    }
+    return 'Clear chats';
+  }
+
+  private runDangerAction(): void {
+    const action: string = this.pendingDangerAction;
+    this.showDangerConfirmSheet = false;
+    this.pendingDangerAction = '';
+    if (action === 'settings') {
+      this.vm.resetLocalSettingsAndKeys();
+      return;
+    }
+    if (action === 'chats') {
+      this.vm.clearAllConversations();
+    }
   }
 
   private openWebLink(url: string, title: string): void {

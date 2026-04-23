@@ -40,4 +40,8 @@ export class ConversationService {
   async deleteMessages(ids: string[]): Promise<void> {
     await this.rdbService.deleteMessages(ids);
   }
+
+  async deleteAllConversations(): Promise<void> {
+    await this.rdbService.deleteAllConversations();
+  }
 }

@@ -171,6 +171,14 @@ export class ConversationRdbService {
     }
   }
 
+  async deleteAllConversations(): Promise<void> {
+    const store = this.requireStore();
+    await this.executeSql(store, 'DELETE FROM message_search_sources');
+    await this.executeSql(store, 'DELETE FROM message_tool_calls');
+    await this.executeSql(store, 'DELETE FROM messages');
+    await this.executeSql(store, 'DELETE FROM conversations');
+  }
+
   async loadConversationsWithMessages(): Promise<Conversation[]> {
     const store = this.requireStore();
     const conversations: Conversation[] = [];

@@ -1,5 +1,5 @@
 import { common } from '@kit.AbilityKit';
-import { ApiMessage, ApiToolCall, ChatCompletionResponse, ModelInfo, ModelListResponse, ModelMode, ResponseMetadata, UsageInfo } from '../models/ApiModels';
+import { ApiMessage, ApiToolCall, BalanceInfo, BalanceResponse, ChatCompletionResponse, ModelInfo, ModelListResponse, ModelMode, ResponseMetadata, UsageInfo } from '../models/ApiModels';
 import {
   ChatMessage,
   Conversation,
@@ -47,6 +47,7 @@ export class ChatViewModel {
   searchApiKeyConfigured: boolean = false;
   searchApiKeyDraft: string = '';
   settingsMessage: string = '';
+  balanceMessage: string = '';
 
   private initialized: boolean = false;
   private settings: AppSettings = createDefaultSettings();
@@ -190,6 +191,20 @@ export class ChatViewModel {
     this.settingsMessage = 'Connected, but required models were not both found.';
   }
 
+  async checkBalance(): Promise<void> {
+    if (!this.apiKeyConfigured) {
+      this.balanceMessage = '请先配置 DeepSeek API Key。';
+      return;
+    }
+    this.balanceMessage = 'Checking DeepSeek balance...';
+    const response: BalanceResponse | null = await this.deepSeekService.fetchBalance();
+    if (response === null) {
+      this.balanceMessage = '余额查询失败，请确认 API Key 和网络。';
+      return;
+    }
+    this.balanceMessage = this.formatBalance(response);
+  }
+
   async createNewConversation(): Promise<void> {
     const conversation: Conversation = createConversation('New chat');
     this.conversations = [conversation].concat(this.conversations);
@@ -227,6 +242,43 @@ export class ChatViewModel {
       await this.createNewConversation();
     }
     await this.persistDeleteConversation(id);
+  }
+
+  async clearAllConversations(): Promise<void> {
+    if (this.isLoading) {
+      this.settingsMessage = '请先停止当前生成。';
+      return;
+    }
+    try {
+      await this.conversationService.deleteAllConversations();
+      this.conversations = [];
+      this.currentConversationId = '';
+      this.messages = [];
+      await this.createNewConversation();
+      this.settingsMessage = 'All local chats cleared.';
+    } catch (err) {
+      this.settingsMessage = '清空会话失败，请稍后重试。';
+    }
+  }
+
+  async resetLocalSettingsAndKeys(): Promise<void> {
+    if (this.isLoading) {
+      this.settingsMessage = '请先停止当前生成。';
+      return;
+    }
+    try {
+      await this.preferencesService.clearApiKey();
+      await this.preferencesService.clearSearchApiKey();
+      const defaults: AppSettings = await this.preferencesService.resetSettings();
+      this.settings = defaults;
+      this.applySettings(defaults);
+      this.setApiKey('');
+      this.setSearchApiKey('');
+      this.balanceMessage = '';
+      this.settingsMessage = 'Settings and API keys cleared.';
+    } catch (err) {
+      this.settingsMessage = '重置本地设置失败，请稍后重试。';
+    }
   }
 
   async sendMessage(): Promise<void> {
@@ -539,6 +591,80 @@ export class ChatViewModel {
     return conversation.title;
   }
 
+  getProviderStatusText(): string {
+    const deepSeekStatus: string = this.apiKeyConfigured ? 'DeepSeek configured' : 'DeepSeek missing';
+    const searchStatus: string = this.searchApiKeyConfigured ? 'Tavily configured' : 'Tavily missing';
+    return `${deepSeekStatus}. ${searchStatus}.`;
+  }
+
+  getConversationCountText(): string {
+    if (this.conversations.length === 1) {
+      return '1 local conversation';
+    }
+    return `${this.conversations.length} local conversations`;
+  }
+
+  getCurrentConversationExportName(extension: string): string {
+    const suffix: string = extension.trim().length > 0 ? extension.trim() : 'md';
+    return `${this.sanitizeFileName(this.getCurrentTitle())}.${suffix}`;
+  }
+
+  getCurrentConversationMarkdown(): string {
+    const conversation: Conversation | null = this.findConversation(this.currentConversationId);
+    const title: string = conversation === null ? 'New chat' : conversation.title;
+    const messages: ChatMessage[] = conversation === null ? this.messages : conversation.messages;
+    const lines: string[] = [];
+    lines.push(`# ${title}`);
+    lines.push('');
+    lines.push(`Exported from Tomo at ${new Date().toISOString()}.`);
+    lines.push('');
+    for (let i = 0; i < messages.length; i++) {
+      const message: ChatMessage = messages[i];
+      lines.push(`## ${this.toMarkdownRole(message.role)}`);
+      lines.push('');
+      if (message.reasoningContent.length > 0) {
+        lines.push('<details>');
+        lines.push('<summary>Reasoning</summary>');
+        lines.push('');
+        lines.push(message.reasoningContent);
+        lines.push('');
+        lines.push('</details>');
+        lines.push('');
+      }
+      if (message.content.length > 0) {
+        lines.push(message.content);
+        lines.push('');
+      }
+      if (message.errorMessage.length > 0) {
+        lines.push(`Error: ${message.errorMessage}`);
+        lines.push('');
+      }
+      if (message.searchSources.length > 0) {
+        lines.push('### Sources');
+        lines.push('');
+        for (let j = 0; j < message.searchSources.length; j++) {
+          const source: SearchResult = message.searchSources[j];
+          lines.push(`${source.index}. [${source.title}](${source.url})`);
+        }
+        lines.push('');
+      }
+    }
+    return lines.join('\n');
+  }
+
+  getCurrentConversationJson(): string {
+    const conversation: Conversation | null = this.findConversation(this.currentConversationId);
+    const title: string = conversation === null ? 'New chat' : conversation.title;
+    const messages: ChatMessage[] = conversation === null ? this.messages : conversation.messages;
+    const payload: Conversation = new Conversation();
+    payload.id = conversation === null ? this.currentConversationId : conversation.id;
+    payload.title = title;
+    payload.createdAt = conversation === null ? 0 : conversation.createdAt;
+    payload.updatedAt = conversation === null ? Date.now() : conversation.updatedAt;
+    payload.messages = messages;
+    return JSON.stringify(payload, null, 2);
+  }
+
   private applySettings(settings: AppSettings): void {
     this.modelMode = settings.modelMode;
     this.fontSize = settings.fontSize;
@@ -579,6 +705,43 @@ export class ChatViewModel {
       }
     }
     return false;
+  }
+
+  private formatBalance(response: BalanceResponse): string {
+    const availability: string = response.isAvailable ? 'Account available' : 'Account unavailable';
+    if (response.balanceInfos.length === 0) {
+      return `${availability}. No balance entries returned.`;
+    }
+    const parts: string[] = [];
+    for (let i = 0; i < response.balanceInfos.length; i++) {
+      const info: BalanceInfo = response.balanceInfos[i];
+      parts.push(`${info.currency} ${info.totalBalance}`);
+    }
+    return `${availability}. Balance: ${parts.join(', ')}`;
+  }
+
+  private toMarkdownRole(role: MessageRole): string {
+    if (role === MessageRole.USER) {
+      return 'User';
+    }
+    if (role === MessageRole.ASSISTANT) {
+      return 'Assistant';
+    }
+    if (role === MessageRole.SYSTEM) {
+      return 'System';
+    }
+    return 'Tool';
+  }
+
+  private sanitizeFileName(name: string): string {
+    const clean: string = name.trim().replace(/[\\/:*?"<>|]/g, '_');
+    if (clean.length === 0) {
+      return 'tomo-conversation';
+    }
+    if (clean.length > 48) {
+      return clean.substring(0, 48);
+    }
+    return clean;
   }
 
   private ensureConversation(): string {

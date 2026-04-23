@@ -197,6 +197,16 @@
   - `markdownBridge.openCitation()` 根据 citation index 打开对应来源的 Navigation 内置浏览器页。
   - 消息详情来源列表展示标题、host、snippet，并支持复制单条来源链接。
   - 新增单元测试覆盖来源合并编号、tool JSON index 透传和 Markdown citation bridge。
+- 补齐设置页数据与账户子项：
+  - Settings 增加 Account 区，展示 DeepSeek / Tavily 配置状态。
+  - Account 区支持手动查询 DeepSeek `/user/balance`，并展示账户可用状态与各币种余额。
+  - Settings 增加 Data 区，展示本地会话数量。
+  - 当前会话支持通过系统 Document Picker 导出 Markdown 和 JSON。
+  - Markdown 导出包含角色、正文、reasoning 折叠块、错误信息和搜索来源链接。
+  - JSON 导出复用会话 / 消息本地结构，不包含 API Key 等敏感信息。
+  - Data 区支持清空全部本地会话，RDB 同步清理 conversations、messages、tool calls 和 search sources，并在执行前显示确认弹窗。
+  - Data 区支持清除本地设置与 DeepSeek / Tavily 加密 Key，恢复默认设置后重新注入空 Key，并在执行前显示确认弹窗。
+  - 新增单元测试覆盖当前会话 Markdown / JSON 导出和导出文件名清理。
 
 ### 验证
 
@@ -211,6 +221,6 @@
 
 ### 下一步
 
-1. 继续完善设置页中的 provider 错误说明、余额查询和数据清理入口。
-2. 增加数据清理与导出入口，包括清空会话、导出 Markdown / JSON 和清除本地设置。
-3. 优化搜索 provider 可选项，为后续 Brave / Bing / Serper provider 预留配置结构。
+1. 优化搜索 provider 可选项，为后续 Brave / Bing / Serper provider 预留配置结构。
+2. 推进长上下文管理、消息编辑 / 重新生成和会话分支等完整聊天体验能力。
+3. 优化导出体验，补充全量会话导出、导入恢复和分享入口。

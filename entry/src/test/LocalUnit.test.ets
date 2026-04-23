@@ -1,6 +1,6 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
 import { ApiMessage, ApiToolDefinition, ModelMode, getDeepSeekModelId } from '../main/ets/models/ApiModels';
-import { MessageRole, createConversationTitle, createMessage } from '../main/ets/models/ChatModels';
+import { Conversation, MessageRole, createConversation, createConversationTitle, createMessage } from '../main/ets/models/ChatModels';
 import { createDefaultSettings } from '../main/ets/models/SettingsModels';
 import { SearchResult, mergeSearchSources, normalizeSearchResults } from '../main/ets/models/SearchModels';
 import { DeepSeekService, parseBalanceResponse, parseChatCompletionResponse, parseModelListResponse } from '../main/ets/services/DeepSeekService';
@@ -16,6 +16,7 @@ import {
   parseWebSearchArguments
 } from '../main/ets/services/SearchToolService';
 import { buildMarkdownHtml, estimateMarkdownHeight, normalizeTaskListMarkers, toScriptString } from '../main/ets/shared/MarkdownHtmlRenderer';
+import { ChatViewModel } from '../main/ets/viewmodels/ChatViewModel';
 
 export default function localUnitTest() {
   describe('deepSeekClientFoundation', () => {
@@ -240,6 +241,30 @@ export default function localUnitTest() {
       expect(normalizeTaskListMarkers('- [x] done\n- [ ] todo')).assertEqual('- ☑ done\n- ☐ todo');
       expect(toScriptString('</script><p>x</p>').indexOf('<\\/script') >= 0).assertTrue();
       expect(estimateMarkdownHeight('text\n```ts\ncode\n```', 15) > 40).assertTrue();
+    });
+
+    it('exports current conversation as markdown and json without secrets', 0, () => {
+      const vm = new ChatViewModel();
+      const conversation: Conversation = createConversation('Export / Chat');
+      const userMessage = createMessage(conversation.id, MessageRole.USER, 'hello');
+      const assistantMessage = createMessage(conversation.id, MessageRole.ASSISTANT, 'answer');
+      assistantMessage.reasoningContent = 'private chain summary';
+      assistantMessage.searchSources = [
+        { index: 1, title: 'Docs', url: 'https://api-docs.deepseek.com/', snippet: 'DeepSeek docs', publishedAt: '', source: 'DeepSeek' }
+      ];
+      conversation.messages = [userMessage, assistantMessage];
+      vm.conversations = [conversation];
+      vm.currentConversationId = conversation.id;
+      vm.messages = conversation.messages;
+      const markdown = vm.getCurrentConversationMarkdown();
+      expect(markdown.indexOf('# Export / Chat') >= 0).assertTrue();
+      expect(markdown.indexOf('## User') >= 0).assertTrue();
+      expect(markdown.indexOf('<summary>Reasoning</summary>') >= 0).assertTrue();
+      expect(markdown.indexOf('[Docs](https://api-docs.deepseek.com/)') >= 0).assertTrue();
+      expect(vm.getCurrentConversationExportName('md')).assertEqual('Export _ Chat.md');
+      const json = vm.getCurrentConversationJson();
+      expect(json.indexOf('"title": "Export / Chat"') >= 0).assertTrue();
+      expect(json.indexOf('sk-') < 0).assertTrue();
     });
   });
 }
