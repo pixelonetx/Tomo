@@ -174,6 +174,14 @@
   - 联网搜索默认值支持打开/关闭并持久化。
   - 最大搜索结果数支持 1 到 5 范围内步进调整并持久化。
   - API Keys 区域复用现有 DeepSeek / Tavily 保存、清除和检查能力。
+- 完成 API Key 安全存储迁移：
+  - 新增 `SecureKeyService`，使用 HUKS 托管 AES-128-GCM 密钥。
+  - DeepSeek API Key 与 Tavily Search API Key 保存时只写入密文和 nonce，不再写入明文 Preferences。
+  - 启动恢复 key 时优先读取 HUKS 加密载荷并解密后注入 `DeepSeekService` / `TavilySearchProvider`。
+  - 发现旧版明文 Preferences key 时自动迁移为加密载荷，并删除旧明文值。
+  - 清除 key 时同步删除旧明文、密文、nonce 和配置状态。
+  - Settings / API Keys 文案更新为 HUKS AES-GCM 本地加密存储说明。
+  - `SecureKeyService` 中 HUKS 会话和随机数调用均进入显式异常边界，`assembleHap` 无新增 ArkTS “可能抛异常”警告。
 
 ### 验证
 
@@ -188,6 +196,6 @@
 
 ### 下一步
 
-1. 推进 API Key 安全存储迁移，替换当前 Preferences 明文保存。
-2. 优化联网工具轮：减少 final stream 前的重复 final probe，或支持流式 tool_calls delta 解析。
-3. 继续完善设置页中的 provider 错误说明、余额查询和数据清理入口。
+1. 优化联网工具轮：减少 final stream 前的重复 final probe，或支持流式 tool_calls delta 解析。
+2. 继续完善设置页中的 provider 错误说明、余额查询和数据清理入口。
+3. 增加数据清理与导出入口，包括清空会话、导出 Markdown / JSON 和清除本地设置。

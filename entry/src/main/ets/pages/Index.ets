@@ -487,7 +487,7 @@ struct Index {
           .fontColor($r('app.color.text_primary'))
           .width('100%')
 
-        Text('Saved locally in this app sandbox via Preferences for the first version. DeepSeek powers chat; Tavily powers web search.')
+        Text('Stored locally as HUKS AES-GCM encrypted payloads. Legacy Preferences keys are migrated on startup. DeepSeek powers chat; Tavily powers web search.')
           .fontSize(13)
           .fontColor($r('app.color.text_secondary'))
           .lineHeight(19)

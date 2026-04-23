@@ -73,8 +73,8 @@ export class ChatViewModel {
       this.settings = createDefaultSettings();
     }
     this.applySettings(this.settings);
-    this.restoreApiKey();
-    this.restoreSearchApiKey();
+    await this.restoreApiKey();
+    await this.restoreSearchApiKey();
     this.searchService.setProvider(this.tavilySearchProvider);
     try {
       await this.conversationService.init(context);
@@ -552,9 +552,9 @@ export class ChatViewModel {
     this.searchApiKeyConfigured = settings.searchApiKeyConfigured;
   }
 
-  private restoreApiKey(): void {
+  private async restoreApiKey(): Promise<void> {
     try {
-      const apiKey: string = this.preferencesService.getApiKey();
+      const apiKey: string = await this.preferencesService.loadApiKey();
       this.setApiKey(apiKey);
       this.apiKeyConfigured = apiKey.length > 0;
     } catch (err) {
@@ -562,9 +562,9 @@ export class ChatViewModel {
     }
   }
 
-  private restoreSearchApiKey(): void {
+  private async restoreSearchApiKey(): Promise<void> {
     try {
-      const apiKey: string = this.preferencesService.getSearchApiKey();
+      const apiKey: string = await this.preferencesService.loadSearchApiKey();
       this.setSearchApiKey(apiKey);
       this.searchApiKeyConfigured = apiKey.length > 0;
     } catch (err) {

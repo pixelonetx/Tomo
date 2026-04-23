@@ -3,9 +3,12 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { preferences } from '@kit.ArkData';
 import { ModelMode } from '../models/ApiModels';
 import { AppSettings, ThemeMode, createDefaultSettings } from '../models/SettingsModels';
+import { SecureKeyBlob, SecureKeyService } from './SecureKeyService';
 
 export enum PreferenceKey {
   API_KEY = 'apiKey',
+  API_KEY_CIPHER = 'apiKeyCipher',
+  API_KEY_NONCE = 'apiKeyNonce',
   API_KEY_CONFIGURED = 'apiKeyConfigured',
   MODEL_MODE = 'modelMode',
   THEME_MODE = 'themeMode',
@@ -17,6 +20,8 @@ export enum PreferenceKey {
   WEB_SEARCH_DEFAULT_ENABLED = 'webSearchDefaultEnabled',
   SEARCH_PROVIDER = 'searchProvider',
   SEARCH_API_KEY = 'searchApiKey',
+  SEARCH_API_KEY_CIPHER = 'searchApiKeyCipher',
+  SEARCH_API_KEY_NONCE = 'searchApiKeyNonce',
   SEARCH_API_KEY_CONFIGURED = 'searchApiKeyConfigured',
   SEARCH_MAX_RESULTS = 'searchMaxResults'
 }
@@ -25,6 +30,7 @@ const PREFERENCES_NAME: string = 'deepseek_chat_settings';
 
 export class PreferencesService {
   private store: preferences.Preferences | null = null;
+  private secureKeyService: SecureKeyService = new SecureKeyService();
 
   init(context: common.Context): void {
     if (this.store !== null) {
@@ -98,12 +104,28 @@ export class PreferencesService {
     return this.getString(store, PreferenceKey.API_KEY, '');
   }
 
+  async loadApiKey(): Promise<string> {
+    return this.loadSecret(
+      PreferenceKey.API_KEY_CIPHER,
+      PreferenceKey.API_KEY_NONCE,
+      PreferenceKey.API_KEY,
+      PreferenceKey.API_KEY_CONFIGURED
+    );
+  }
+
   async saveApiKey(key: string): Promise<void> {
     const store = this.requireStore();
     const cleanKey: string = key.trim();
+    if (cleanKey.length === 0) {
+      await this.clearApiKey();
+      return;
+    }
+    const blob: SecureKeyBlob = await this.secureKeyService.encryptText(cleanKey);
     try {
-      store.putSync(PreferenceKey.API_KEY, cleanKey);
-      store.putSync(PreferenceKey.API_KEY_CONFIGURED, cleanKey.length > 0);
+      store.putSync(PreferenceKey.API_KEY_CIPHER, blob.cipherHex);
+      store.putSync(PreferenceKey.API_KEY_NONCE, blob.nonceHex);
+      store.deleteSync(PreferenceKey.API_KEY);
+      store.putSync(PreferenceKey.API_KEY_CONFIGURED, true);
     } catch (err) {
       throw new Error('Failed to write api key.');
     }
@@ -114,6 +136,8 @@ export class PreferencesService {
     const store = this.requireStore();
     try {
       store.deleteSync(PreferenceKey.API_KEY);
+      store.deleteSync(PreferenceKey.API_KEY_CIPHER);
+      store.deleteSync(PreferenceKey.API_KEY_NONCE);
       store.putSync(PreferenceKey.API_KEY_CONFIGURED, false);
     } catch (err) {
       throw new Error('Failed to clear api key.');
@@ -136,12 +160,28 @@ export class PreferencesService {
     return this.getString(store, PreferenceKey.SEARCH_API_KEY, '');
   }
 
+  async loadSearchApiKey(): Promise<string> {
+    return this.loadSecret(
+      PreferenceKey.SEARCH_API_KEY_CIPHER,
+      PreferenceKey.SEARCH_API_KEY_NONCE,
+      PreferenceKey.SEARCH_API_KEY,
+      PreferenceKey.SEARCH_API_KEY_CONFIGURED
+    );
+  }
+
   async saveSearchApiKey(key: string): Promise<void> {
     const store = this.requireStore();
     const cleanKey: string = key.trim();
+    if (cleanKey.length === 0) {
+      await this.clearSearchApiKey();
+      return;
+    }
+    const blob: SecureKeyBlob = await this.secureKeyService.encryptText(cleanKey);
     try {
-      store.putSync(PreferenceKey.SEARCH_API_KEY, cleanKey);
-      store.putSync(PreferenceKey.SEARCH_API_KEY_CONFIGURED, cleanKey.length > 0);
+      store.putSync(PreferenceKey.SEARCH_API_KEY_CIPHER, blob.cipherHex);
+      store.putSync(PreferenceKey.SEARCH_API_KEY_NONCE, blob.nonceHex);
+      store.deleteSync(PreferenceKey.SEARCH_API_KEY);
+      store.putSync(PreferenceKey.SEARCH_API_KEY_CONFIGURED, true);
     } catch (err) {
       throw new Error('Failed to write search api key.');
     }
@@ -152,6 +192,8 @@ export class PreferencesService {
     const store = this.requireStore();
     try {
       store.deleteSync(PreferenceKey.SEARCH_API_KEY);
+      store.deleteSync(PreferenceKey.SEARCH_API_KEY_CIPHER);
+      store.deleteSync(PreferenceKey.SEARCH_API_KEY_NONCE);
       store.putSync(PreferenceKey.SEARCH_API_KEY_CONFIGURED, false);
     } catch (err) {
       throw new Error('Failed to clear search api key.');
@@ -232,6 +274,40 @@ export class PreferencesService {
       return defaultValue;
     }
     return defaultValue;
+  }
+
+  private async loadSecret(
+    cipherKey: PreferenceKey,
+    nonceKey: PreferenceKey,
+    legacyPlainKey: PreferenceKey,
+    configuredKey: PreferenceKey
+  ): Promise<string> {
+    const store = this.requireStore();
+    const cipherHex: string = this.getString(store, cipherKey, '');
+    const nonceHex: string = this.getString(store, nonceKey, '');
+    if (cipherHex.length > 0 && nonceHex.length > 0) {
+      return this.secureKeyService.decryptText({
+        cipherHex: cipherHex,
+        nonceHex: nonceHex
+      });
+    }
+
+    const legacyPlainText: string = this.getString(store, legacyPlainKey, '');
+    if (legacyPlainText.length === 0) {
+      return '';
+    }
+
+    const blob: SecureKeyBlob = await this.secureKeyService.encryptText(legacyPlainText);
+    try {
+      store.putSync(cipherKey, blob.cipherHex);
+      store.putSync(nonceKey, blob.nonceHex);
+      store.deleteSync(legacyPlainKey);
+      store.putSync(configuredKey, true);
+    } catch (err) {
+      throw new Error('Failed to migrate api key.');
+    }
+    await this.flushStore(store);
+    return legacyPlainText;
   }
 
   private toModelMode(value: string): ModelMode {
