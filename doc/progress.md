@@ -182,6 +182,13 @@
   - 清除 key 时同步删除旧明文、密文、nonce 和配置状态。
   - Settings / API Keys 文案更新为 HUKS AES-GCM 本地加密存储说明。
   - `SecureKeyService` 中 HUKS 会话和随机数调用均进入显式异常边界，`assembleHap` 无新增 ArkTS “可能抛异常”警告。
+- 优化联网工具轮为流式 Tool Calls：
+  - `DeepSeekSseParser` 支持解析 `delta.tool_calls`。
+  - `DeepSeekService` 新增 `sendStreamToolRound()`，使用 `stream=true`、`tool_choice=auto` 并按 tool call `index` 聚合分片参数。
+  - 联网模式每一轮都改为流式请求；如果模型直接输出最终 content，UI 立即流式展示并完成，不再额外发起 final probe。
+  - 如果模型返回 `finish_reason=tool_calls`，继续执行受控 `web_search` 并追加 tool message 后进入下一轮。
+  - Reasoner 在工具轮中的 `reasoning_content` 继续实时展示并保留进同一回合 transcript。
+  - 新增单元测试覆盖流式工具请求体和 streaming tool call delta 解析。
 
 ### 验证
 
@@ -196,6 +203,6 @@
 
 ### 下一步
 
-1. 优化联网工具轮：减少 final stream 前的重复 final probe，或支持流式 tool_calls delta 解析。
-2. 继续完善设置页中的 provider 错误说明、余额查询和数据清理入口。
-3. 增加数据清理与导出入口，包括清空会话、导出 Markdown / JSON 和清除本地设置。
+1. 继续完善设置页中的 provider 错误说明、余额查询和数据清理入口。
+2. 增加数据清理与导出入口，包括清空会话、导出 Markdown / JSON 和清除本地设置。
+3. 为联网搜索增加引用编号一致性处理，让回答中的 `[1]`、`[2]` 与消息详情来源稳定对应。

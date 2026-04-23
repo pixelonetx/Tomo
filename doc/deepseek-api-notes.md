@@ -737,6 +737,7 @@ private stripReasoningFromHistory(messages: ApiMessage[]): ApiMessage[] {
 - `[DONE]` 后触发 complete。
 - complete 前如果有 usage chunk，要更新 usage。
 - reasoner 中 `reasoning_content` 和 `content` 可能分别出现在不同 chunk，两个缓冲区都要维护。
+- Tool Calls 流式响应中 `delta.tool_calls[].function.arguments` 可能分片返回，必须按 `index` 追加聚合，直到 `finish_reason=tool_calls`。
 
 ### DeepSeekService 接口
 
@@ -745,6 +746,7 @@ export class DeepSeekService {
   setApiKey(key: string): void
   cancelRequest(): void
   sendStreamChat(messages: ApiMessage[], mode: ModelMode, callback: StreamCallback): Promise<void>
+  sendStreamToolRound(messages: ApiMessage[], mode: ModelMode, tools: ApiToolDefinition[], callback: StreamCallback): Promise<ChatCompletionResponse | null>
   sendToolRound(messages: ApiMessage[], tools: ApiToolDefinition[]): Promise<ChatCompletionResponse | null>
   sendChat(messages: ApiMessage[], mode: ModelMode): Promise<ChatCompletionResponse | null>
   fetchModels(): Promise<ModelListResponse | null>

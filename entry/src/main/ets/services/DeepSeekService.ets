@@ -3,6 +3,7 @@ import { util } from '@kit.ArkTS';
 import { http } from '@kit.NetworkKit';
 import {
   ApiMessage,
+  ApiToolCallDelta,
   ApiRequestMessage,
   ApiToolCall,
   ApiToolCallFunction,
@@ -38,6 +39,7 @@ export class DeepSeekService {
   private latestMetadata: ResponseMetadata | null = null;
   private latestUsage: UsageInfo | null = null;
   private streamCompleted: boolean = false;
+  private streamDeltaObserver: ((delta: StreamDelta) => void) | null = null;
 
   setApiKey(key: string): void {
     this.apiKey = key.trim();
@@ -121,6 +123,54 @@ export class DeepSeekService {
     await this.sendStreamRequest(requestBody, callback);
   }
 
+  async sendStreamToolRound(messages: ApiMessage[], mode: ModelMode, tools: ApiToolDefinition[], callback: StreamCallback): Promise<ChatCompletionResponse | null> {
+    if (this.apiKey.length === 0) {
+      callback.onError('请先配置 DeepSeek API Key。');
+      return null;
+    }
+
+    const response: ChatCompletionResponse = createEmptyChatCompletionResponse();
+    let failed: boolean = false;
+    const requestBody: ChatCompletionRequest = this.buildStreamToolRequestBody(messages, mode, tools);
+    await this.sendStreamRequest(requestBody, {
+      onContent: (chunk: string): void => {
+        response.content += chunk;
+        callback.onContent(chunk);
+      },
+      onReasoning: (chunk: string): void => {
+        response.reasoningContent += chunk;
+        callback.onReasoning(chunk);
+      },
+      onMetadata: (metadata: ResponseMetadata): void => {
+        response.metadata = metadata;
+        callback.onMetadata(metadata);
+      },
+      onUsage: (usage: UsageInfo): void => {
+        response.usage = usage;
+        callback.onUsage(usage);
+      },
+      onError: (message: string): void => {
+        failed = true;
+        callback.onError(message);
+      },
+      onComplete: (metadata: ResponseMetadata | null, usage: UsageInfo | null): void => {
+        if (metadata !== null) {
+          response.metadata = metadata;
+        }
+        if (usage !== null) {
+          response.usage = usage;
+        }
+        callback.onComplete(metadata, usage);
+      }
+    }, (delta: StreamDelta): void => {
+      if (delta.finishReason.length > 0) {
+        response.metadata.finishReason = delta.finishReason;
+      }
+      this.appendToolCallDeltas(response.toolCalls, delta.toolCallDeltas);
+    });
+    return failed ? null : response;
+  }
+
   async fetchModels(): Promise<ModelListResponse | null> {
     if (this.apiKey.length === 0) {
       return null;
@@ -187,6 +237,13 @@ export class DeepSeekService {
     if (!isReasoner) {
       request.temperature = 1.0;
     }
+    return request;
+  }
+
+  buildStreamToolRequestBody(messages: ApiMessage[], mode: ModelMode, tools: ApiToolDefinition[]): ChatCompletionRequest {
+    const request: ChatCompletionRequest = this.buildToolRequestBody(messages, mode, tools);
+    request.stream = true;
+    request.stream_options = { include_usage: true };
     return request;
   }
 
@@ -270,6 +327,9 @@ export class DeepSeekService {
         this.latestUsage = delta.usage;
         callback.onUsage(delta.usage);
       }
+      if (this.streamDeltaObserver !== null) {
+        this.streamDeltaObserver(delta);
+      }
       if (delta.done) {
         if (!this.streamCompleted) {
           callback.onComplete(this.latestMetadata, this.latestUsage);
@@ -279,12 +339,17 @@ export class DeepSeekService {
     }
   }
 
-  private sendStreamRequest(requestBody: ChatCompletionRequest, callback: StreamCallback): Promise<void> {
+  private sendStreamRequest(
+    requestBody: ChatCompletionRequest,
+    callback: StreamCallback,
+    deltaObserver: ((delta: StreamDelta) => void) | null = null
+  ): Promise<void> {
     this.cancelRequest();
     this.streamBuffer = '';
     this.latestMetadata = null;
     this.latestUsage = null;
     this.streamCompleted = false;
+    this.streamDeltaObserver = deltaObserver;
 
     const request = http.createHttp();
     this.currentRequest = request;
@@ -305,6 +370,7 @@ export class DeepSeekService {
           this.streamCompleted = true;
         }
         this.destroyRequest(request);
+        this.streamDeltaObserver = null;
         resolve();
       });
 
@@ -325,11 +391,13 @@ export class DeepSeekService {
         if (responseCode >= 400) {
           callback.onError(mapDeepSeekError(responseCode, 'DeepSeek 请求失败。'));
           this.destroyRequest(request);
+          this.streamDeltaObserver = null;
           resolve();
         }
       }).catch((_err: Error) => {
         callback.onError('网络请求失败，请稍后重试。');
         this.destroyRequest(request);
+        this.streamDeltaObserver = null;
         resolve();
       });
     });
@@ -376,6 +444,35 @@ export class DeepSeekService {
     this.destroyRequest(request);
   }
 
+  private appendToolCallDeltas(toolCalls: ApiToolCall[], deltas: ApiToolCallDelta[]): void {
+    for (let i = 0; i < deltas.length; i++) {
+      const delta: ApiToolCallDelta = deltas[i];
+      while (toolCalls.length <= delta.index) {
+        toolCalls.push({
+          id: '',
+          type: 'function',
+          function: {
+            name: '',
+            arguments: ''
+          }
+        });
+      }
+      const current: ApiToolCall = toolCalls[delta.index];
+      if (delta.id.length > 0) {
+        current.id = delta.id;
+      }
+      if (delta.type.length > 0) {
+        current.type = delta.type;
+      }
+      if (delta.function.name.length > 0) {
+        current.function.name = delta.function.name;
+      }
+      if (delta.function.arguments.length > 0) {
+        current.function.arguments += delta.function.arguments;
+      }
+    }
+  }
+
   private destroyRequest(request: http.HttpRequest): void {
     if (this.currentRequest !== request) {
       return;
@@ -410,6 +507,22 @@ export function parseModelListResponse(text: string): ModelListResponse | null {
   } catch (err) {
     return null;
   }
+}
+
+function createEmptyChatCompletionResponse(): ChatCompletionResponse {
+  return {
+    content: '',
+    reasoningContent: '',
+    metadata: {
+      responseId: '',
+      model: '',
+      created: 0,
+      systemFingerprint: '',
+      finishReason: ''
+    },
+    usage: createEmptyUsage(),
+    toolCalls: []
+  };
 }
 
 export function parseBalanceResponse(text: string): BalanceResponse | null {

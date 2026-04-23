@@ -54,6 +54,10 @@ export default function localUnitTest() {
       expect(requestBody.stream).assertFalse();
       expect(requestBody.tool_choice).assertEqual('auto');
       expect(requestBody.tools?.length).assertEqual(1);
+      const streamToolBody = service.buildStreamToolRequestBody([{ role: 'user', content: 'latest DeepSeek API changes' }], ModelMode.CHAT, [tool]);
+      expect(streamToolBody.stream).assertTrue();
+      expect(streamToolBody.tool_choice).assertEqual('auto');
+      expect(streamToolBody.stream_options?.include_usage).assertTrue();
       const finalBody = service.buildToolFinalRequestBody([
         { role: 'assistant', content: '', reasoningContent: 'tool thinking', toolCallsJson: '[{"id":"call_1","type":"function","function":{"name":"web_search","arguments":"{}"}}]' },
         { role: 'tool', content: '{"results":[]}', toolCallId: 'call_1' }
@@ -96,6 +100,18 @@ export default function localUnitTest() {
       expect(deltas[0].reasoningContent).assertEqual('think');
       expect(deltas[0].finishReason).assertEqual('stop');
       expect(deltas[0].metadata?.model).assertEqual('deepseek-reasoner');
+    });
+
+    it('parses streaming tool call deltas', 0, () => {
+      const payload = 'data: {"id":"chatcmpl-tool","created":2,"model":"deepseek-chat","choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"web_search","arguments":"{\\\"query\\\":\\\"Deep"}}]},"finish_reason":null}]}\n\n' +
+        'data: {"id":"chatcmpl-tool","created":2,"model":"deepseek-chat","choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"Seek API\\\",\\\"freshness\\\":\\\"week\\\"}"}}]},"finish_reason":"tool_calls"}]}\n\n';
+      const deltas = parseSseChunk(payload);
+      expect(deltas.length).assertEqual(2);
+      expect(deltas[0].toolCallDeltas.length).assertEqual(1);
+      expect(deltas[0].toolCallDeltas[0].id).assertEqual('call_1');
+      expect(deltas[0].toolCallDeltas[0].function.name).assertEqual('web_search');
+      expect(deltas[1].toolCallDeltas[0].function.arguments).assertEqual('Seek API","freshness":"week"}');
+      expect(deltas[1].finishReason).assertEqual('tool_calls');
     });
 
     it('parses DeepSeek usage and cache tokens', 0, () => {

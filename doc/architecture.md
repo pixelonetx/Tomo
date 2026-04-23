@@ -357,6 +357,7 @@ export class DeepSeekService {
   setApiKey(key: string): void
   cancelRequest(): void
   sendStreamChat(messages: ApiMessage[], mode: ModelMode, callback: StreamCallback): Promise<void>
+  sendStreamToolRound(messages: ApiMessage[], mode: ModelMode, tools: ApiToolDefinition[], callback: StreamCallback): Promise<ChatCompletionResponse | null>
   sendToolRound(messages: ApiMessage[], tools: ApiToolDefinition[]): Promise<ChatCompletionResponse | null>
   sendChat(messages: ApiMessage[], mode: ModelMode): Promise<ChatCompletionResponse | null>
   fetchModels(): Promise<ModelListResponse | null>
@@ -378,6 +379,7 @@ export class DeepSeekService {
 - 限制最多 5 条结果。
 - 将搜索结果封装成 `role=tool` message。
 - 执行最多 3 轮工具循环。
+- 工具轮优先使用流式 `tool_choice=auto`，解析 `delta.tool_calls`；若该轮直接输出 content，则直接作为最终回答完成，避免额外 final probe。
 
 ### 接口建议
 

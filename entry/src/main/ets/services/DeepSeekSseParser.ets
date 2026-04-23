@@ -1,10 +1,11 @@
-import { ResponseMetadata, UsageInfo, createEmptyUsage } from '../models/ApiModels';
+import { ApiToolCallDelta, ApiToolCallFunction, ResponseMetadata, UsageInfo, createEmptyUsage } from '../models/ApiModels';
 
 export interface StreamDelta {
   content: string;
   reasoningContent: string;
   metadata: ResponseMetadata | null;
   usage: UsageInfo | null;
+  toolCallDeltas: ApiToolCallDelta[];
   finishReason: string;
   done: boolean;
 }
@@ -15,6 +16,7 @@ export function createEmptyDelta(): StreamDelta {
     reasoningContent: '',
     metadata: null,
     usage: null,
+    toolCallDeltas: [],
     finishReason: '',
     done: false
   };
@@ -92,17 +94,20 @@ function parseDataPayload(payload: string): StreamDelta | null {
       if (choiceDelta !== undefined) {
         delta.content = stringField(choiceDelta, 'content');
         delta.reasoningContent = stringField(choiceDelta, 'reasoning_content');
+        delta.toolCallDeltas = parseToolCallDeltas(choiceDelta['tool_calls'] as Array<Record<string, Object>>);
       }
       delta.finishReason = stringField(firstChoice, 'finish_reason');
     }
 
-    delta.metadata = {
-      responseId: stringField(root, 'id'),
-      model: stringField(root, 'model'),
-      created: numberField(root, 'created'),
-      systemFingerprint: stringField(root, 'system_fingerprint'),
-      finishReason: delta.finishReason
-    };
+    if (choices !== undefined && choices.length > 0) {
+      delta.metadata = {
+        responseId: stringField(root, 'id'),
+        model: stringField(root, 'model'),
+        created: numberField(root, 'created'),
+        systemFingerprint: stringField(root, 'system_fingerprint'),
+        finishReason: delta.finishReason
+      };
+    }
 
     const usage = root['usage'] as Record<string, Object>;
     if (usage !== undefined) {
@@ -113,6 +118,28 @@ function parseDataPayload(payload: string): StreamDelta | null {
   } catch (err) {
     return null;
   }
+}
+
+function parseToolCallDeltas(items: Array<Record<string, Object>>): ApiToolCallDelta[] {
+  const deltas: ApiToolCallDelta[] = [];
+  if (items === undefined) {
+    return deltas;
+  }
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const fn = item['function'] as Record<string, Object>;
+    const callFunction: ApiToolCallFunction = {
+      name: fn !== undefined ? stringField(fn, 'name') : '',
+      arguments: fn !== undefined ? stringField(fn, 'arguments') : ''
+    };
+    deltas.push({
+      index: numberField(item, 'index'),
+      id: stringField(item, 'id'),
+      type: stringField(item, 'type'),
+      function: callFunction
+    });
+  }
+  return deltas;
 }
 
 function parseUsage(usage: Record<string, Object>): UsageInfo {

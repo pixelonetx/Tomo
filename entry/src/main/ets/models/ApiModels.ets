@@ -86,6 +86,13 @@ export interface ApiToolCall {
   function: ApiToolCallFunction;
 }
 
+export interface ApiToolCallDelta {
+  index: number;
+  id: string;
+  type: string;
+  function: ApiToolCallFunction;
+}
+
 export interface ApiToolCallFunction {
   name: string;
   arguments: string;

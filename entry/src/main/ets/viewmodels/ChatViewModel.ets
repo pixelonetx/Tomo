@@ -288,18 +288,44 @@ export class ChatViewModel {
     const toolRecords: ToolCallRecord[] = [];
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const response: ChatCompletionResponse | null = await this.deepSeekService.sendToolRound(
-        transcript,
-        this.modelMode,
-        [createWebSearchToolDefinition()]
-      );
+      let streamedAnswerStarted: boolean = false;
+      const response: ChatCompletionResponse | null = await this.deepSeekService.sendStreamToolRound(transcript, this.modelMode, [createWebSearchToolDefinition()], {
+        onContent: (chunk: string): void => {
+          if (!streamedAnswerStarted) {
+            this.setAssistantContent(assistantMessageId, '');
+            streamedAnswerStarted = true;
+          }
+          this.appendAssistantContent(assistantMessageId, chunk);
+        },
+        onReasoning: (chunk: string): void => {
+          this.appendAssistantReasoning(assistantMessageId, chunk);
+        },
+        onMetadata: (metadata: ResponseMetadata): void => {
+          this.updateAssistantMetadata(assistantMessageId, metadata);
+        },
+        onUsage: (usage: UsageInfo): void => {
+          this.updateAssistantUsage(assistantMessageId, usage);
+        },
+        onError: (message: string): void => {
+          this.failAssistantMessage(assistantMessageId, message);
+          this.attachSearchDetails(assistantMessageId, allSources, toolRecords);
+        },
+        onComplete: (_metadata: ResponseMetadata | null, _usage: UsageInfo | null): void => {
+        }
+      });
       if (response === null) {
-        this.failAssistantMessage(assistantMessageId, '联网对话请求失败，请检查 DeepSeek API Key 和网络。');
+        if (this.errorMessage.length === 0) {
+          this.failAssistantMessage(assistantMessageId, '联网对话请求失败，请检查 DeepSeek API Key 和网络。');
+        }
         return;
       }
 
       if (response.metadata.finishReason !== 'tool_calls' || response.toolCalls.length === 0) {
-        await this.streamSearchFinalAnswer(assistantMessageId, transcript, allSources, toolRecords);
+        if (response.content.length === 0) {
+          this.setAssistantContent(assistantMessageId, '未生成回答。');
+        }
+        this.completeAssistantMessage(assistantMessageId, response.metadata, response.usage);
+        this.attachSearchDetails(assistantMessageId, allSources, toolRecords);
         return;
       }
 
@@ -336,37 +362,6 @@ export class ChatViewModel {
 
     this.failAssistantMessage(assistantMessageId, '联网搜索轮数已达上限，请缩小问题范围后重试。');
     this.attachSearchDetails(assistantMessageId, allSources, toolRecords);
-  }
-
-  private async streamSearchFinalAnswer(
-    assistantMessageId: string,
-    transcript: ApiMessage[],
-    sources: SearchResult[],
-    toolRecords: ToolCallRecord[]
-  ): Promise<void> {
-    this.setAssistantContent(assistantMessageId, '');
-    await this.deepSeekService.sendStreamToolFinal(transcript, this.modelMode, [createWebSearchToolDefinition()], {
-      onContent: (chunk: string): void => {
-        this.appendAssistantContent(assistantMessageId, chunk);
-      },
-      onReasoning: (chunk: string): void => {
-        this.appendAssistantReasoning(assistantMessageId, chunk);
-      },
-      onMetadata: (metadata: ResponseMetadata): void => {
-        this.updateAssistantMetadata(assistantMessageId, metadata);
-      },
-      onUsage: (usage: UsageInfo): void => {
-        this.updateAssistantUsage(assistantMessageId, usage);
-      },
-      onError: (message: string): void => {
-        this.failAssistantMessage(assistantMessageId, message);
-        this.attachSearchDetails(assistantMessageId, sources, toolRecords);
-      },
-      onComplete: (metadata: ResponseMetadata | null, usage: UsageInfo | null): void => {
-        this.completeAssistantMessage(assistantMessageId, metadata, usage);
-        this.attachSearchDetails(assistantMessageId, sources, toolRecords);
-      }
-    });
   }
 
   private async executeSearchToolCall(
