@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { util } from '@kit.ArkTS';
 import { fileIo, picker } from '@kit.CoreFileKit';
-import { APP_NAME } from '../shared/Constants';
+import { APP_NAME, CONTEXT_EXTENDED_CHAR_BUDGET, CONTEXT_STANDARD_CHAR_BUDGET } from '../shared/Constants';
 import { MarkdownMessageView } from '../components/MarkdownMessageView';
 import { ModelMode } from '../models/ApiModels';
 import { ChatMessage, Conversation, MessageRole, SendStatus } from '../models/ChatModels';
@@ -20,9 +20,11 @@ struct Index {
   @State showApiKeySheet: boolean = false;
   @State showMessageDetailSheet: boolean = false;
   @State showAboutSheet: boolean = false;
+  @State showEditMessageSheet: boolean = false;
   @State showDangerConfirmSheet: boolean = false;
   @State pendingDangerAction: string = '';
   @State selectedMessageId: string = '';
+  @State editMessageDraft: string = '';
   @State expandedReasoningIds: string[] = [];
   @State vm: ChatViewModel = new ChatViewModel();
 
@@ -75,6 +77,14 @@ struct Index {
       dragBar: true,
       onDisappear: (): void => {
         this.showAboutSheet = false;
+      }
+    })
+    .bindSheet(this.showEditMessageSheet, this.EditMessageSheetContent(), {
+      height: SheetSize.FIT_CONTENT,
+      showClose: true,
+      dragBar: true,
+      onDisappear: (): void => {
+        this.showEditMessageSheet = false;
       }
     })
     .bindSheet(this.showDangerConfirmSheet, this.DangerConfirmSheetContent(), {
@@ -233,6 +243,37 @@ struct Index {
             this.vm.retryLastMessage();
           })
       }
+
+      if (message.role === MessageRole.ASSISTANT && message.status !== SendStatus.SENDING) {
+        Button('Regenerate')
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+          .backgroundColor(Color.Transparent)
+          .height(28)
+          .onClick((): void => {
+            this.vm.regenerateAssistantMessage(message.id);
+          })
+      }
+
+      if (message.role === MessageRole.USER) {
+        Button('Edit')
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+          .backgroundColor(Color.Transparent)
+          .height(28)
+          .onClick((): void => {
+            this.openEditMessageSheet(message);
+          })
+      }
+
+      Button('Branch')
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+        .backgroundColor(Color.Transparent)
+        .height(28)
+        .onClick((): void => {
+          this.vm.branchConversationFromMessage(message.id);
+        })
 
       Button('Delete')
         .fontSize(12)
@@ -699,6 +740,45 @@ struct Index {
         }
 
         ListItem() {
+          this.SettingsSectionTitle('Context')
+        }
+        ListItem() {
+          Column({ space: 10 }) {
+            Row({ space: 10 }) {
+              Button('Standard 128K')
+                .layoutWeight(1)
+                .height(40)
+                .fontSize(13)
+                .fontColor(this.vm.getContextWindowText() === 'Standard 128K' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
+                .backgroundColor(this.vm.getContextWindowText() === 'Standard 128K' ? $r('app.color.button_primary') : Color.Transparent)
+                .border({ width: 1, color: $r('app.color.divider') })
+                .borderRadius(8)
+                .onClick((): void => {
+                  this.vm.setContextWindowChars(CONTEXT_STANDARD_CHAR_BUDGET);
+                })
+              Button('1M-ready')
+                .layoutWeight(1)
+                .height(40)
+                .fontSize(13)
+                .fontColor(this.vm.getContextWindowText() === 'Extended 1M-ready' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
+                .backgroundColor(this.vm.getContextWindowText() === 'Extended 1M-ready' ? $r('app.color.button_primary') : Color.Transparent)
+                .border({ width: 1, color: $r('app.color.divider') })
+                .borderRadius(8)
+                .onClick((): void => {
+                  this.vm.setContextWindowChars(CONTEXT_EXTENDED_CHAR_BUDGET);
+                })
+            }
+            .width('100%')
+            Text(this.vm.getContextUsageText())
+              .fontSize(13)
+              .fontColor($r('app.color.text_secondary'))
+              .lineHeight(19)
+              .width('100%')
+          }
+          .width('100%')
+        }
+
+        ListItem() {
           this.SettingsSectionTitle('Web Search')
         }
         ListItem() {
@@ -1083,6 +1163,58 @@ struct Index {
   }
 
   @Builder
+  private EditMessageSheetContent() {
+    Column({ space: 16 }) {
+      Text('Edit message')
+        .fontSize(20)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .width('100%')
+
+      TextArea({ placeholder: 'Message', text: this.editMessageDraft })
+        .fontSize(this.vm.fontSize)
+        .fontColor($r('app.color.text_primary'))
+        .placeholderColor($r('app.color.text_placeholder'))
+        .backgroundColor($r('app.color.input_bar_background'))
+        .border({ width: 1, color: $r('app.color.input_border') })
+        .borderRadius(10)
+        .height(168)
+        .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+        .onChange((value: string): void => {
+          this.editMessageDraft = value;
+        })
+
+      Row({ space: 10 }) {
+        Button('Cancel')
+          .layoutWeight(1)
+          .height(42)
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor(Color.Transparent)
+          .border({ width: 1, color: $r('app.color.divider') })
+          .borderRadius(10)
+          .onClick((): void => {
+            this.showEditMessageSheet = false;
+          })
+
+        Button('Save & regenerate')
+          .layoutWeight(1)
+          .height(42)
+          .fontColor($r('app.color.text_on_primary'))
+          .backgroundColor($r('app.color.button_primary'))
+          .borderRadius(10)
+          .onClick((): void => {
+            this.vm.editUserMessageAndRegenerate(this.selectedMessageId, this.editMessageDraft);
+            this.showEditMessageSheet = false;
+          })
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 22, bottom: 24 })
+    .backgroundColor($r('app.color.page_background'))
+  }
+
+  @Builder
   private DetailRow(label: string, value: string) {
     Row({ space: 12 }) {
       Text(label)
@@ -1101,6 +1233,12 @@ struct Index {
 
   private getCurrentTitle(): string {
     return this.vm.getCurrentTitle();
+  }
+
+  private openEditMessageSheet(message: ChatMessage): void {
+    this.selectedMessageId = message.id;
+    this.editMessageDraft = message.content;
+    this.showEditMessageSheet = true;
   }
 
   private getApiKeyButtonText(): string {

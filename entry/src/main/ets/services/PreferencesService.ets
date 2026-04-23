@@ -3,6 +3,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { preferences } from '@kit.ArkData';
 import { ModelMode } from '../models/ApiModels';
 import { AppSettings, ThemeMode, createDefaultSettings } from '../models/SettingsModels';
+import { CONTEXT_EXTENDED_CHAR_BUDGET, CONTEXT_STANDARD_CHAR_BUDGET } from '../shared/Constants';
 import { SecureKeyBlob, SecureKeyService } from './SecureKeyService';
 
 export enum PreferenceKey {
@@ -23,7 +24,8 @@ export enum PreferenceKey {
   SEARCH_API_KEY_CIPHER = 'searchApiKeyCipher',
   SEARCH_API_KEY_NONCE = 'searchApiKeyNonce',
   SEARCH_API_KEY_CONFIGURED = 'searchApiKeyConfigured',
-  SEARCH_MAX_RESULTS = 'searchMaxResults'
+  SEARCH_MAX_RESULTS = 'searchMaxResults',
+  CONTEXT_WINDOW_CHARS = 'contextWindowChars'
 }
 
 const PREFERENCES_NAME: string = 'deepseek_chat_settings';
@@ -58,7 +60,8 @@ export class PreferencesService {
       webSearchDefaultEnabled: this.getBoolean(store, PreferenceKey.WEB_SEARCH_DEFAULT_ENABLED, defaults.webSearchDefaultEnabled),
       searchProvider: this.getString(store, PreferenceKey.SEARCH_PROVIDER, defaults.searchProvider),
       searchApiKeyConfigured: this.getBoolean(store, PreferenceKey.SEARCH_API_KEY_CONFIGURED, defaults.searchApiKeyConfigured),
-      searchMaxResults: this.clampSearchMaxResults(this.getNumber(store, PreferenceKey.SEARCH_MAX_RESULTS, defaults.searchMaxResults))
+      searchMaxResults: this.clampSearchMaxResults(this.getNumber(store, PreferenceKey.SEARCH_MAX_RESULTS, defaults.searchMaxResults)),
+      contextWindowChars: this.normalizeContextWindowChars(this.getNumber(store, PreferenceKey.CONTEXT_WINDOW_CHARS, defaults.contextWindowChars))
     };
   }
 
@@ -77,6 +80,7 @@ export class PreferencesService {
       store.putSync(PreferenceKey.SEARCH_PROVIDER, settings.searchProvider);
       store.putSync(PreferenceKey.SEARCH_API_KEY_CONFIGURED, settings.searchApiKeyConfigured);
       store.putSync(PreferenceKey.SEARCH_MAX_RESULTS, this.clampSearchMaxResults(settings.searchMaxResults));
+      store.putSync(PreferenceKey.CONTEXT_WINDOW_CHARS, this.normalizeContextWindowChars(settings.contextWindowChars));
     } catch (err) {
       throw new Error('Failed to write preferences.');
     }
@@ -335,5 +339,12 @@ export class PreferencesService {
       return 5;
     }
     return Math.floor(value);
+  }
+
+  private normalizeContextWindowChars(value: number): number {
+    if (value >= CONTEXT_EXTENDED_CHAR_BUDGET) {
+      return CONTEXT_EXTENDED_CHAR_BUDGET;
+    }
+    return CONTEXT_STANDARD_CHAR_BUDGET;
   }
 }

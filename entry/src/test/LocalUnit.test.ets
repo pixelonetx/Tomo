@@ -16,6 +16,7 @@ import {
   parseWebSearchArguments
 } from '../main/ets/services/SearchToolService';
 import { buildMarkdownHtml, estimateMarkdownHeight, normalizeTaskListMarkers, toScriptString } from '../main/ets/shared/MarkdownHtmlRenderer';
+import { CONTEXT_STANDARD_CHAR_BUDGET } from '../main/ets/shared/Constants';
 import { ChatViewModel } from '../main/ets/viewmodels/ChatViewModel';
 
 export default function localUnitTest() {
@@ -91,6 +92,7 @@ export default function localUnitTest() {
       expect(settings.backgroundEnabled).assertFalse();
       expect(settings.webSearchDefaultEnabled).assertFalse();
       expect(settings.searchMaxResults).assertEqual(5);
+      expect(settings.contextWindowChars).assertEqual(CONTEXT_STANDARD_CHAR_BUDGET);
     });
 
     it('parses DeepSeek stream content and reasoning chunks', 0, () => {

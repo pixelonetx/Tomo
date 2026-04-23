@@ -1,4 +1,5 @@
 import { ModelMode } from './ApiModels';
+import { CONTEXT_STANDARD_CHAR_BUDGET } from '../shared/Constants';
 
 export enum ThemeMode {
   SYSTEM = 'system',
@@ -19,6 +20,7 @@ export interface AppSettings {
   searchProvider: string;
   searchApiKeyConfigured: boolean;
   searchMaxResults: number;
+  contextWindowChars: number;
 }
 
 export function createDefaultSettings(): AppSettings {
@@ -34,6 +36,7 @@ export function createDefaultSettings(): AppSettings {
     webSearchDefaultEnabled: false,
     searchProvider: 'tavily',
     searchApiKeyConfigured: false,
-    searchMaxResults: 5
+    searchMaxResults: 5,
+    contextWindowChars: CONTEXT_STANDARD_CHAR_BUDGET
   };
 }

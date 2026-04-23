@@ -25,7 +25,15 @@ import {
   createWebSearchToolDefinition,
   parseWebSearchArguments
 } from '../services/SearchToolService';
-import { MAX_SEARCH_RESULTS_PER_CALL, MAX_TOOL_CALLS_PER_ROUND, MAX_TOOL_ROUNDS } from '../shared/Constants';
+import {
+  CONTEXT_EXTENDED_CHAR_BUDGET,
+  CONTEXT_STANDARD_CHAR_BUDGET,
+  MAX_MESSAGE_CHARS,
+  MAX_RECENT_MESSAGES,
+  MAX_SEARCH_RESULTS_PER_CALL,
+  MAX_TOOL_CALLS_PER_ROUND,
+  MAX_TOOL_ROUNDS
+} from '../shared/Constants';
 
 @Observed
 export class ChatViewModel {
@@ -282,7 +290,7 @@ export class ChatViewModel {
   }
 
   async sendMessage(): Promise<void> {
-    const content: string = this.inputText.trim();
+    const content: string = this.truncateMessageContent(this.inputText.trim());
     if (content.length === 0 || this.isLoading) {
       return;
     }
@@ -291,15 +299,26 @@ export class ChatViewModel {
     const userMessage: ChatMessage = createMessage(conversationId, MessageRole.USER, content);
     userMessage.status = SendStatus.SUCCESS;
 
-    const assistantMessage: ChatMessage = createMessage(conversationId, MessageRole.ASSISTANT, '');
-    assistantMessage.status = SendStatus.SENDING;
-
-    this.messages = this.messages.concat([userMessage, assistantMessage]);
+    this.messages = this.messages.concat([userMessage]);
     this.inputText = '';
     this.isLoading = true;
     this.errorMessage = '';
     this.updateCurrentConversation(content);
     await this.persistMessage(userMessage);
+    await this.startAssistantReply();
+  }
+
+  private async startAssistantReply(): Promise<void> {
+    if (this.messages.length === 0) {
+      return;
+    }
+    const conversationId: string = this.ensureConversation();
+    const assistantMessage: ChatMessage = createMessage(conversationId, MessageRole.ASSISTANT, '');
+    assistantMessage.status = SendStatus.SENDING;
+    this.messages = this.messages.concat([assistantMessage]);
+    this.isLoading = true;
+    this.errorMessage = '';
+    this.syncCurrentMessages();
     await this.persistMessage(assistantMessage);
 
     if (this.webSearchEnabled) {
@@ -308,6 +327,120 @@ export class ChatViewModel {
     }
 
     await this.sendMessageWithoutSearch(assistantMessage.id);
+  }
+
+  async editUserMessageAndRegenerate(id: string, content: string): Promise<void> {
+    const cleanContent: string = content.trim();
+    if (this.isLoading || cleanContent.length === 0) {
+      return;
+    }
+    const targetIndex: number = this.findMessageIndex(id);
+    if (targetIndex < 0 || this.messages[targetIndex].role !== MessageRole.USER) {
+      return;
+    }
+
+    const updated: ChatMessage[] = [];
+    const removedIds: string[] = [];
+    for (let i = 0; i < this.messages.length; i++) {
+      if (i < targetIndex) {
+        updated.push(this.messages[i]);
+      } else if (i === targetIndex) {
+        const message: ChatMessage = this.messages[i];
+        message.content = this.truncateMessageContent(cleanContent);
+        message.status = SendStatus.SUCCESS;
+        message.errorMessage = '';
+        message.updatedAt = Date.now();
+        updated.push(message);
+        await this.persistMessage(message);
+      } else {
+        removedIds.push(this.messages[i].id);
+      }
+    }
+    this.messages = updated;
+    this.syncCurrentMessages();
+    await this.persistDeleteMessages(removedIds);
+    await this.startAssistantReply();
+  }
+
+  async regenerateAssistantMessage(id: string): Promise<void> {
+    if (this.isLoading) {
+      return;
+    }
+    const targetIndex: number = this.findMessageIndex(id);
+    if (targetIndex < 0 || this.messages[targetIndex].role !== MessageRole.ASSISTANT) {
+      return;
+    }
+    let userIndex: number = -1;
+    for (let i = targetIndex - 1; i >= 0; i--) {
+      if (this.messages[i].role === MessageRole.USER) {
+        userIndex = i;
+        break;
+      }
+    }
+    if (userIndex < 0) {
+      return;
+    }
+    const updated: ChatMessage[] = [];
+    const removedIds: string[] = [];
+    for (let i = 0; i < this.messages.length; i++) {
+      if (i <= userIndex) {
+        updated.push(this.messages[i]);
+      } else {
+        removedIds.push(this.messages[i].id);
+      }
+    }
+    this.messages = updated;
+    this.syncCurrentMessages();
+    await this.persistDeleteMessages(removedIds);
+    await this.startAssistantReply();
+  }
+
+  async branchConversationFromMessage(id: string): Promise<void> {
+    if (this.isLoading) {
+      return;
+    }
+    const targetIndex: number = this.findMessageIndex(id);
+    if (targetIndex < 0) {
+      return;
+    }
+    const current: Conversation | null = this.findConversation(this.currentConversationId);
+    const branchTitle: string = current === null ? 'Branch' : `${current.title} branch`;
+    const branch: Conversation = createConversation(createConversationTitle(branchTitle));
+    const copiedMessages: ChatMessage[] = [];
+    for (let i = 0; i <= targetIndex; i++) {
+      copiedMessages.push(this.cloneMessageForConversation(this.messages[i], branch.id));
+    }
+    branch.messages = copiedMessages;
+    branch.updatedAt = Date.now();
+    this.conversations = [branch].concat(this.conversations);
+    this.currentConversationId = branch.id;
+    this.messages = copiedMessages;
+    await this.persistConversation(branch);
+    for (let i = 0; i < copiedMessages.length; i++) {
+      await this.persistMessage(copiedMessages[i]);
+    }
+  }
+
+  async continueFromMessage(id: string): Promise<void> {
+    if (this.isLoading) {
+      return;
+    }
+    const targetIndex: number = this.findMessageIndex(id);
+    if (targetIndex < 0) {
+      return;
+    }
+    const updated: ChatMessage[] = [];
+    const removedIds: string[] = [];
+    for (let i = 0; i < this.messages.length; i++) {
+      if (i <= targetIndex) {
+        updated.push(this.messages[i]);
+      } else {
+        removedIds.push(this.messages[i].id);
+      }
+    }
+    this.messages = updated;
+    this.syncCurrentMessages();
+    await this.persistDeleteMessages(removedIds);
   }
 
   private async sendMessageWithoutSearch(assistantMessageId: string): Promise<void> {
@@ -579,8 +712,29 @@ export class ChatViewModel {
     await this.saveCurrentSettings('Search result limit saved.', '搜索结果数保存失败。');
   }
 
+  async setContextWindowChars(chars: number): Promise<void> {
+    this.settings.contextWindowChars = chars >= CONTEXT_EXTENDED_CHAR_BUDGET ? CONTEXT_EXTENDED_CHAR_BUDGET : CONTEXT_STANDARD_CHAR_BUDGET;
+    await this.saveCurrentSettings('Context window saved.', '上下文窗口设置保存失败。');
+  }
+
   getSearchMaxResults(): number {
     return this.settings.searchMaxResults;
+  }
+
+  getContextWindowChars(): number {
+    return this.settings.contextWindowChars;
+  }
+
+  getContextWindowText(): string {
+    if (this.settings.contextWindowChars >= CONTEXT_EXTENDED_CHAR_BUDGET) {
+      return 'Extended 1M-ready';
+    }
+    return 'Standard 128K';
+  }
+
+  getContextUsageText(): string {
+    const chars: number = this.estimateContextChars(this.messages);
+    return `Current chat approx ${chars} / ${this.settings.contextWindowChars} chars`;
   }
 
   getCurrentTitle(): string {
@@ -792,34 +946,106 @@ export class ChatViewModel {
   }
 
   private toApiMessages(messages: ChatMessage[]): ApiMessage[] {
-    const apiMessages: ApiMessage[] = [];
-    for (let i = 0; i < messages.length; i++) {
+    return this.toBudgetedApiMessages(messages, true);
+  }
+
+  private toApiMessagesForNewUserRound(messages: ChatMessage[]): ApiMessage[] {
+    return this.toBudgetedApiMessages(messages, false);
+  }
+
+  private toBudgetedApiMessages(messages: ChatMessage[], includeReasoning: boolean): ApiMessage[] {
+    const selected: ChatMessage[] = [];
+    let charBudget: number = Math.max(this.settings.contextWindowChars, MAX_MESSAGE_CHARS);
+    let includedCount: number = 0;
+    for (let i = messages.length - 1; i >= 0; i--) {
       const message: ChatMessage = messages[i];
       if (message.status === SendStatus.FAILED || message.status === SendStatus.CANCELED || message.status === SendStatus.SENDING) {
         continue;
       }
+      const messageChars: number = this.estimateMessageChars(message, includeReasoning);
+      if (selected.length > 0 && (charBudget - messageChars < 0 || includedCount >= MAX_RECENT_MESSAGES && this.settings.contextWindowChars <= CONTEXT_STANDARD_CHAR_BUDGET)) {
+        break;
+      }
+      selected.unshift(message);
+      charBudget -= messageChars;
+      includedCount++;
+    }
+    const apiMessages: ApiMessage[] = [];
+    for (let i = 0; i < selected.length; i++) {
+      const message: ChatMessage = selected[i];
       apiMessages.push({
         role: message.role,
         content: message.content,
-        reasoningContent: message.reasoningContent
+        reasoningContent: includeReasoning ? message.reasoningContent : ''
       });
     }
     return apiMessages;
   }
 
-  private toApiMessagesForNewUserRound(messages: ChatMessage[]): ApiMessage[] {
-    const apiMessages: ApiMessage[] = [];
+  private estimateContextChars(messages: ChatMessage[]): number {
+    let chars: number = 0;
     for (let i = 0; i < messages.length; i++) {
       const message: ChatMessage = messages[i];
       if (message.status === SendStatus.FAILED || message.status === SendStatus.CANCELED || message.status === SendStatus.SENDING) {
         continue;
       }
-      apiMessages.push({
-        role: message.role,
-        content: message.content
-      });
+      chars += this.estimateMessageChars(message, false);
     }
-    return apiMessages;
+    return chars;
+  }
+
+  private estimateMessageChars(message: ChatMessage, includeReasoning: boolean): number {
+    let chars: number = message.content.length + message.role.length + 8;
+    if (includeReasoning) {
+      chars += message.reasoningContent.length;
+    }
+    if (message.toolCalls.length > 0) {
+      chars += JSON.stringify(message.toolCalls).length;
+    }
+    return chars;
+  }
+
+  private truncateMessageContent(content: string): string {
+    if (content.length <= MAX_MESSAGE_CHARS) {
+      return content;
+    }
+    return content.substring(0, MAX_MESSAGE_CHARS);
+  }
+
+  private findMessageIndex(id: string): number {
+    for (let i = 0; i < this.messages.length; i++) {
+      if (this.messages[i].id === id) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private cloneMessageForConversation(message: ChatMessage, conversationId: string): ChatMessage {
+    const cloned: ChatMessage = createMessage(conversationId, message.role, message.content);
+    cloned.reasoningContent = message.reasoningContent;
+    cloned.status = message.status;
+    cloned.errorMessage = message.errorMessage;
+    cloned.responseId = message.responseId;
+    cloned.model = message.model;
+    cloned.finishReason = message.finishReason;
+    cloned.systemFingerprint = message.systemFingerprint;
+    cloned.promptTokens = message.promptTokens;
+    cloned.completionTokens = message.completionTokens;
+    cloned.totalTokens = message.totalTokens;
+    cloned.reasoningTokens = message.reasoningTokens;
+    cloned.cacheHitTokens = message.cacheHitTokens;
+    cloned.cacheMissTokens = message.cacheMissTokens;
+    cloned.searchSources = message.searchSources.slice();
+    const toolCalls: ToolCallRecord[] = [];
+    for (let i = 0; i < message.toolCalls.length; i++) {
+      const record: ToolCallRecord = message.toolCalls[i];
+      toolCalls.push(createToolCallRecord(cloned.id, record.toolCallId, record.name, record.argumentsJson, record.resultJson, record.status));
+    }
+    cloned.toolCalls = toolCalls;
+    cloned.createdAt = message.createdAt;
+    cloned.updatedAt = Date.now();
+    return cloned;
   }
 
   private appendAssistantContent(id: string, chunk: string): void {
@@ -988,6 +1214,17 @@ export class ChatViewModel {
   private async persistDeleteMessage(id: string): Promise<void> {
     try {
       await this.conversationService.deleteMessage(id);
+    } catch (err) {
+      this.errorMessage = '消息删除失败。';
+    }
+  }
+
+  private async persistDeleteMessages(ids: string[]): Promise<void> {
+    if (ids.length === 0) {
+      return;
+    }
+    try {
+      await this.conversationService.deleteMessages(ids);
     } catch (err) {
       this.errorMessage = '消息删除失败。';
     }
