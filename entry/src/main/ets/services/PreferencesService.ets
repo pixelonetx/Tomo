@@ -3,7 +3,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { preferences } from '@kit.ArkData';
 import { ModelMode } from '../models/ApiModels';
 import { AppSettings, ThemeMode, createDefaultSettings } from '../models/SettingsModels';
-import { CONTEXT_EXTENDED_CHAR_BUDGET, CONTEXT_STANDARD_CHAR_BUDGET } from '../shared/Constants';
+import { CONTEXT_V4_CHAR_BUDGET } from '../shared/Constants';
 import { SecureKeyBlob, SecureKeyService } from './SecureKeyService';
 
 export enum PreferenceKey {
@@ -330,9 +330,6 @@ export class PreferencesService {
   }
 
   private normalizeContextWindowChars(value: number): number {
-    if (value >= CONTEXT_EXTENDED_CHAR_BUDGET) {
-      return CONTEXT_EXTENDED_CHAR_BUDGET;
-    }
-    return CONTEXT_STANDARD_CHAR_BUDGET;
+    return value > 0 ? CONTEXT_V4_CHAR_BUDGET : CONTEXT_V4_CHAR_BUDGET;
   }
 }

@@ -1,5 +1,4 @@
 import { ModelMode } from '../models/ApiModels';
-import { CONTEXT_EXTENDED_CHAR_BUDGET, CONTEXT_STANDARD_CHAR_BUDGET } from '../shared/Constants';
 import { ChatViewModel } from '../viewmodels/ChatViewModel';
 
 @Builder
@@ -231,31 +230,17 @@ export function SettingsView(
       }
       ListItem() {
         Column({ space: 10 }) {
-          Row({ space: 10 }) {
-            Button('Balanced 128K')
-              .layoutWeight(1)
-              .height(40)
-              .fontSize(13)
-              .fontColor(vm.getContextWindowText() === 'Balanced 128K' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-              .backgroundColor(vm.getContextWindowText() === 'Balanced 128K' ? $r('app.color.button_primary') : $r('app.color.surface_background'))
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                vm.setContextWindowChars(CONTEXT_STANDARD_CHAR_BUDGET);
-              })
-            Button('V4 1M')
-              .layoutWeight(1)
-              .height(40)
-              .fontSize(13)
-              .fontColor(vm.getContextWindowText() === 'V4 1M' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-              .backgroundColor(vm.getContextWindowText() === 'V4 1M' ? $r('app.color.button_primary') : $r('app.color.surface_background'))
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                vm.setContextWindowChars(CONTEXT_EXTENDED_CHAR_BUDGET);
-              })
+          Row() {
+            Text(vm.getContextWindowText())
+              .fontSize(14)
+              .fontColor($r('app.color.text_primary'))
           }
           .width('100%')
+          .height(40)
+          .padding({ left: 12, right: 12 })
+          .backgroundColor($r('app.color.surface_background'))
+          .border({ width: 1, color: $r('app.color.divider') })
+          .borderRadius(8)
           Text(vm.getContextUsageText())
             .fontSize(13)
             .fontColor($r('app.color.text_secondary'))

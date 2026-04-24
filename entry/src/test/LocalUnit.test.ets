@@ -188,7 +188,7 @@ export default function localUnitTest() {
     });
 
     it('parses non-streaming DeepSeek tool call response', 0, () => {
-      const response = parseChatCompletionResponse('{"id":"chatcmpl-tool","created":2,"model":"deepseek-chat","choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","content":"","tool_calls":[{"id":"call_1","type":"function","function":{"name":"web_search","arguments":"{\\\"query\\\":\\\"DeepSeek API\\\",\\\"freshness\\\":\\\"week\\\"}"}}]}}],"usage":{"prompt_tokens":5,"completion_tokens":7,"total_tokens":12}}');
+      const response = parseChatCompletionResponse('{"id":"chatcmpl-tool","created":2,"model":"deepseek-v4-flash","choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","content":"","tool_calls":[{"id":"call_1","type":"function","function":{"name":"web_search","arguments":"{\\\"query\\\":\\\"DeepSeek API\\\",\\\"freshness\\\":\\\"week\\\"}"}}]}}],"usage":{"prompt_tokens":5,"completion_tokens":7,"total_tokens":12}}');
       expect(response?.metadata.finishReason).assertEqual('tool_calls');
       expect(response?.toolCalls.length).assertEqual(1);
       expect(response?.toolCalls[0].function.name).assertEqual('web_search');

@@ -27,7 +27,6 @@ import {
   parseWebSearchArguments
 } from '../services/SearchToolService';
 import {
-  CONTEXT_EXTENDED_CHAR_BUDGET,
   CONTEXT_STANDARD_CHAR_BUDGET,
   MAX_MESSAGE_CHARS,
   MAX_RECENT_MESSAGES,
@@ -721,7 +720,7 @@ export class ChatViewModel {
   }
 
   async setContextWindowChars(chars: number): Promise<void> {
-    this.settings.contextWindowChars = chars >= CONTEXT_EXTENDED_CHAR_BUDGET ? CONTEXT_EXTENDED_CHAR_BUDGET : CONTEXT_STANDARD_CHAR_BUDGET;
+    this.settings.contextWindowChars = chars > 0 ? CONTEXT_STANDARD_CHAR_BUDGET : CONTEXT_STANDARD_CHAR_BUDGET;
     await this.saveCurrentSettings('Context window saved.', '上下文窗口设置保存失败。');
   }
 
@@ -734,15 +733,12 @@ export class ChatViewModel {
   }
 
   getContextWindowText(): string {
-    if (this.settings.contextWindowChars >= CONTEXT_EXTENDED_CHAR_BUDGET) {
-      return 'V4 1M';
-    }
-    return 'Balanced 128K';
+    return 'V4 context window: 1M tokens';
   }
 
   getContextUsageText(): string {
     const chars: number = this.estimateContextChars(this.messages);
-    return `Current chat approx ${chars} / ${this.settings.contextWindowChars} chars`;
+    return `Current chat approx ${chars} / ${this.settings.contextWindowChars} chars budgeted locally`;
   }
 
   getCurrentTitle(): string {
