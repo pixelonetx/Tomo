@@ -52,6 +52,7 @@ struct Index {
     }
     .width('100%')
     .height('100%')
+    .backgroundColor($r('app.color.page_background'))
     .hideNavBar(true)
     .mode(NavigationMode.Stack)
     .navDestination(this.routeMap)
@@ -138,27 +139,27 @@ struct Index {
     }
     .width('100%')
     .height('100%')
-    .padding({ left: 18, right: 18, top: 112, bottom: 132 })
+    .padding({ left: 20, right: 20, top: 96, bottom: 128 })
     .edgeEffect(EdgeEffect.Spring)
     .scrollBar(BarState.Off)
   }
 
   @Builder
   private EmptyState() {
-    Column({ space: 12 }) {
+    Column({ space: 14 }) {
       Text(APP_NAME)
-        .fontSize(26)
-        .fontWeight(FontWeight.Medium)
+        .fontSize(24)
+        .fontWeight(FontWeight.Regular)
         .fontColor($r('app.color.text_primary'))
       Text('Ask with DeepSeek Chat or Reasoner. Search stays off until you choose it.')
         .fontSize(14)
         .fontColor($r('app.color.text_secondary'))
         .textAlign(TextAlign.Center)
         .lineHeight(21)
-        .width('78%')
+        .constraintSize({ maxWidth: 420 })
     }
     .width('100%')
-    .height(320)
+    .height(360)
     .justifyContent(FlexAlign.Center)
   }
 
@@ -171,12 +172,12 @@ struct Index {
           Text(message.content)
             .fontSize(this.vm.fontSize)
             .fontColor($r('app.color.text_primary'))
-            .lineHeight(22)
+            .lineHeight(23)
         }
-        .constraintSize({ maxWidth: '74%' })
-        .padding({ left: 14, right: 14, top: 10, bottom: 10 })
+        .constraintSize({ maxWidth: '78%' })
+        .padding({ left: 16, right: 16, top: 11, bottom: 11 })
         .backgroundColor($r('app.color.bubble_user'))
-        .borderRadius(14)
+        .borderRadius(18)
       } else {
         Column({ space: 8 }) {
           if (message.reasoningContent.length > 0) {
@@ -240,10 +241,11 @@ struct Index {
           }
         }
         .width('100%')
+        .constraintSize({ maxWidth: 860 })
       }
     }
     .width('100%')
-    .padding({ top: 8, bottom: 8 })
+    .padding({ top: 10, bottom: 6 })
 
     Row({ space: 12 }) {
       Blank()
@@ -253,7 +255,7 @@ struct Index {
         .fontSize(12)
         .fontColor($r('app.color.text_secondary'))
         .backgroundColor(Color.Transparent)
-        .height(28)
+        .height(30)
         .onClick((): void => {
           this.copyText(message.content);
         })
@@ -262,7 +264,7 @@ struct Index {
         .fontSize(12)
         .fontColor($r('app.color.text_secondary'))
         .backgroundColor(Color.Transparent)
-        .height(28)
+        .height(30)
         .onClick((): void => {
           this.selectedMessageId = message.id;
           this.showMessageDetailSheet = true;
@@ -273,7 +275,7 @@ struct Index {
           .fontSize(12)
           .fontColor($r('app.color.text_secondary'))
           .backgroundColor(Color.Transparent)
-          .height(28)
+          .height(30)
           .onClick((): void => {
             this.vm.retryLastMessage();
           })
@@ -284,7 +286,7 @@ struct Index {
           .fontSize(12)
           .fontColor($r('app.color.text_secondary'))
           .backgroundColor(Color.Transparent)
-          .height(28)
+          .height(30)
           .onClick((): void => {
             this.vm.regenerateAssistantMessage(message.id);
           })
@@ -295,7 +297,7 @@ struct Index {
           .fontSize(12)
           .fontColor($r('app.color.text_secondary'))
           .backgroundColor(Color.Transparent)
-          .height(28)
+          .height(30)
           .onClick((): void => {
             this.openEditMessageSheet(message);
           })
@@ -305,12 +307,13 @@ struct Index {
         .fontSize(12)
         .fontColor($r('app.color.text_secondary'))
         .backgroundColor(Color.Transparent)
-        .height(28)
+        .height(30)
         .onClick((): void => {
           this.showDeleteMessageConfirm(message.id);
         })
     }
     .width('100%')
+    .constraintSize({ maxWidth: 860 })
   }
 
   @Builder
@@ -331,7 +334,7 @@ struct Index {
           .fontColor($r('app.color.text_secondary'))
           .lineHeight(19)
           .width('100%')
-          .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+          .padding({ left: 12, right: 12, top: 10, bottom: 10 })
           .backgroundColor($r('app.color.code_block_bg'))
           .borderRadius(8)
       }
@@ -345,7 +348,7 @@ struct Index {
     Column() {
       Row()
         .width('100%')
-        .height(108)
+        .height(94)
         .linearGradient({
           direction: GradientDirection.Bottom,
           colors: [
@@ -358,10 +361,10 @@ struct Index {
         Button('Menu')
           .fontSize(13)
           .fontColor($r('app.color.text_primary'))
-          .backgroundColor($r('app.color.top_bar_background'))
+          .backgroundColor($r('app.color.surface_background'))
           .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(19)
-          .height(38)
+          .borderRadius(18)
+          .height(36)
           .onClick((): void => {
             this.isSidebarOpen = !this.isSidebarOpen;
           })
@@ -370,7 +373,7 @@ struct Index {
 
         Text(this.getCurrentTitle())
           .fontSize(16)
-          .fontWeight(FontWeight.Medium)
+          .fontWeight(FontWeight.Regular)
           .fontColor($r('app.color.text_primary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -380,21 +383,21 @@ struct Index {
         Button('New')
           .fontSize(13)
           .fontColor($r('app.color.text_primary'))
-          .backgroundColor($r('app.color.top_bar_background'))
+          .backgroundColor($r('app.color.surface_background'))
           .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(19)
-          .height(38)
+          .borderRadius(18)
+          .height(36)
           .onClick((): void => {
             this.vm.createNewConversation();
           })
       }
       .width('100%')
-      .height(56)
-      .padding({ left: 18, right: 18 })
-      .position({ x: 0, y: 24 })
+      .height(52)
+      .padding({ left: 16, right: 16 })
+      .position({ x: 0, y: 20 })
     }
     .width('100%')
-    .height(108)
+    .height(94)
     .position({ x: 0, y: 0 })
   }
 
@@ -404,7 +407,7 @@ struct Index {
       Blank()
       Row()
         .width('100%')
-        .height(118)
+        .height(116)
         .linearGradient({
           direction: GradientDirection.Bottom,
           colors: [
@@ -426,9 +429,9 @@ struct Index {
       Button(this.vm.webSearchEnabled ? 'Search On' : 'Search')
         .fontSize(12)
         .fontColor($r('app.color.text_primary'))
-        .backgroundColor($r('app.color.page_background'))
+        .backgroundColor(this.vm.webSearchEnabled ? $r('app.color.surface_pressed') : $r('app.color.surface_background'))
         .border({ width: 1, color: $r('app.color.divider') })
-        .borderRadius(19)
+        .borderRadius(18)
         .height(38)
         .onClick((): void => {
           this.vm.toggleWebSearch();
@@ -466,10 +469,10 @@ struct Index {
       .padding({ left: 16, right: 8, top: 4, bottom: 4 })
       .backgroundColor($r('app.color.input_bar_background'))
       .border({ width: 1, color: $r('app.color.input_border') })
-      .borderRadius(24)
+      .borderRadius(22)
     }
     .width('100%')
-    .padding({ left: 8, right: 8, bottom: 12 })
+    .padding({ left: 12, right: 12, bottom: 12 })
   }
 
   @Builder
@@ -477,8 +480,8 @@ struct Index {
     Row() {
       Column({ space: 14 }) {
         Text(APP_NAME)
-          .fontSize(20)
-          .fontWeight(FontWeight.Medium)
+          .fontSize(18)
+          .fontWeight(FontWeight.Regular)
           .fontColor($r('app.color.text_primary'))
           .width('100%')
 
@@ -487,7 +490,7 @@ struct Index {
           .height(40)
           .fontColor($r('app.color.text_on_primary'))
           .backgroundColor($r('app.color.button_primary'))
-          .borderRadius(8)
+          .borderRadius(10)
           .onClick((): void => {
             this.vm.createNewConversation();
             this.isSidebarOpen = false;
@@ -503,7 +506,7 @@ struct Index {
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
                 .width('100%')
                 .padding({ left: 10, right: 10, top: 10, bottom: 10 })
-                .backgroundColor(conversation.id === this.vm.currentConversationId ? $r('app.color.bubble_user') : Color.Transparent)
+                .backgroundColor(conversation.id === this.vm.currentConversationId ? $r('app.color.surface_subtle') : Color.Transparent)
                 .borderRadius(8)
                 .onClick((): void => {
                   this.vm.switchConversation(conversation.id);
@@ -539,10 +542,10 @@ struct Index {
             this.isSidebarOpen = false;
           })
       }
-      .width(300)
+      .width(316)
       .height('100%')
       .padding({ left: 18, right: 18, top: 56, bottom: 18 })
-      .backgroundColor($r('app.color.page_background'))
+      .backgroundColor($r('app.color.surface_background'))
 
       Blank()
         .layoutWeight(1)

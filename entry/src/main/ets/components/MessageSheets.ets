@@ -11,8 +11,8 @@ export function DangerConfirmSheet(
 ) {
   Column({ space: 16 }) {
     Text(title)
-      .fontSize(20)
-      .fontWeight(FontWeight.Medium)
+      .fontSize(18)
+      .fontWeight(FontWeight.Regular)
       .fontColor($r('app.color.text_primary'))
       .width('100%')
 
@@ -25,9 +25,9 @@ export function DangerConfirmSheet(
     Row({ space: 10 }) {
       Button('Cancel')
         .layoutWeight(1)
-        .height(42)
+        .height(44)
         .fontColor($r('app.color.text_primary'))
-        .backgroundColor(Color.Transparent)
+        .backgroundColor($r('app.color.surface_background'))
         .border({ width: 1, color: $r('app.color.divider') })
         .borderRadius(10)
         .onClick((): void => {
@@ -36,7 +36,7 @@ export function DangerConfirmSheet(
 
       Button(actionText)
         .layoutWeight(1)
-        .height(42)
+        .height(44)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.button_primary'))
         .borderRadius(10)
@@ -61,8 +61,8 @@ export function EditMessageSheet(
 ) {
   Column({ space: 16 }) {
     Text('Edit message')
-      .fontSize(20)
-      .fontWeight(FontWeight.Medium)
+      .fontSize(18)
+      .fontWeight(FontWeight.Regular)
       .fontColor($r('app.color.text_primary'))
       .width('100%')
 
@@ -70,7 +70,7 @@ export function EditMessageSheet(
       .fontSize(fontSize)
       .fontColor($r('app.color.text_primary'))
       .placeholderColor($r('app.color.text_placeholder'))
-      .backgroundColor($r('app.color.input_bar_background'))
+      .backgroundColor($r('app.color.surface_background'))
       .border({ width: 1, color: $r('app.color.input_border') })
       .borderRadius(10)
       .height(168)
@@ -82,9 +82,9 @@ export function EditMessageSheet(
     Row({ space: 10 }) {
       Button('Cancel')
         .layoutWeight(1)
-        .height(42)
+        .height(44)
         .fontColor($r('app.color.text_primary'))
-        .backgroundColor(Color.Transparent)
+        .backgroundColor($r('app.color.surface_background'))
         .border({ width: 1, color: $r('app.color.divider') })
         .borderRadius(10)
         .onClick((): void => {
@@ -93,7 +93,7 @@ export function EditMessageSheet(
 
       Button('Save & regenerate')
         .layoutWeight(1)
-        .height(42)
+        .height(44)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.button_primary'))
         .borderRadius(10)
@@ -117,8 +117,8 @@ export function MessageDetailSheet(
 ) {
   Column({ space: 16 }) {
     Text('Message details')
-      .fontSize(20)
-      .fontWeight(FontWeight.Medium)
+      .fontSize(18)
+      .fontWeight(FontWeight.Regular)
       .fontColor($r('app.color.text_primary'))
       .width('100%')
 
@@ -140,9 +140,9 @@ export function MessageDetailSheet(
     Row({ space: 10 }) {
       Button('Copy message')
         .layoutWeight(1)
-        .height(42)
+        .height(44)
         .fontColor($r('app.color.text_primary'))
-        .backgroundColor(Color.Transparent)
+        .backgroundColor($r('app.color.surface_background'))
         .border({ width: 1, color: $r('app.color.divider') })
         .borderRadius(10)
         .onClick((): void => {
@@ -151,7 +151,7 @@ export function MessageDetailSheet(
 
       Button('Copy details')
         .layoutWeight(1)
-        .height(42)
+        .height(44)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.button_primary'))
         .borderRadius(10)
@@ -199,7 +199,7 @@ function SourceList(
             .height(40)
             .fontSize(13)
             .fontColor($r('app.color.text_primary'))
-            .backgroundColor(Color.Transparent)
+            .backgroundColor($r('app.color.surface_background'))
             .border({ width: 1, color: $r('app.color.divider') })
             .borderRadius(8)
             .onClick((): void => {
@@ -212,7 +212,7 @@ function SourceList(
             .height(40)
             .fontSize(12)
             .fontColor($r('app.color.text_primary'))
-            .backgroundColor(Color.Transparent)
+            .backgroundColor($r('app.color.surface_background'))
             .border({ width: 1, color: $r('app.color.divider') })
             .borderRadius(8)
             .onClick((): void => {
@@ -241,6 +241,7 @@ function SourceList(
       .width('100%')
       .padding(10)
       .border({ width: 1, color: $r('app.color.divider') })
+      .backgroundColor($r('app.color.surface_subtle'))
       .borderRadius(8)
     }, (source: SearchResult): string => source.url)
   }

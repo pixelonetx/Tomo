@@ -6,11 +6,23 @@
     },
     {
       "name": "page_background",
+      "value": "#FCFCFC"
+    },
+    {
+      "name": "surface_background",
       "value": "#FFFFFF"
     },
     {
+      "name": "surface_subtle",
+      "value": "#F7F7F7"
+    },
+    {
+      "name": "surface_pressed",
+      "value": "#EFEFEF"
+    },
+    {
       "name": "input_bar_background",
-      "value": "#F8FFFFFF"
+      "value": "#FFFFFFFF"
     },
     {
       "name": "text_primary",
@@ -18,7 +30,7 @@
     },
     {
       "name": "text_secondary",
-      "value": "#737373"
+      "value": "#6B6B6B"
     },
     {
       "name": "text_placeholder",
@@ -34,7 +46,7 @@
     },
     {
       "name": "divider",
-      "value": "#E5E5E5"
+      "value": "#E7E7E7"
     },
     {
       "name": "button_primary",
@@ -46,11 +58,11 @@
     },
     {
       "name": "top_bar_background",
-      "value": "#CCFFFFFF"
+      "value": "#F8FCFCFC"
     },
     {
       "name": "top_bar_gradient_start",
-      "value": "#EAFFFFFF"
+      "value": "#F8FCFCFC"
     },
     {
       "name": "top_bar_gradient_end",
@@ -62,7 +74,7 @@
     },
     {
       "name": "bottom_bar_gradient_end",
-      "value": "#D6FFFFFF"
+      "value": "#F2FCFCFC"
     },
     {
       "name": "input_border",
@@ -70,11 +82,11 @@
     },
     {
       "name": "bubble_user",
-      "value": "#EDEDED"
+      "value": "#F3F3F3"
     },
     {
       "name": "code_block_bg",
-      "value": "#FAFAFA"
+      "value": "#F7F7F7"
     }
   ]
 }

@@ -6,11 +6,23 @@
     },
     {
       "name": "page_background",
-      "value": "#000000"
+      "value": "#0B0B0B"
+    },
+    {
+      "name": "surface_background",
+      "value": "#111111"
+    },
+    {
+      "name": "surface_subtle",
+      "value": "#181818"
+    },
+    {
+      "name": "surface_pressed",
+      "value": "#242424"
     },
     {
       "name": "input_bar_background",
-      "value": "#F0090909"
+      "value": "#F0111111"
     },
     {
       "name": "text_primary",
@@ -46,11 +58,11 @@
     },
     {
       "name": "top_bar_background",
-      "value": "#BC000000"
+      "value": "#E80B0B0B"
     },
     {
       "name": "top_bar_gradient_start",
-      "value": "#DE000000"
+      "value": "#F20B0B0B"
     },
     {
       "name": "top_bar_gradient_end",
@@ -62,7 +74,7 @@
     },
     {
       "name": "bottom_bar_gradient_end",
-      "value": "#D2000000"
+      "value": "#EC0B0B0B"
     },
     {
       "name": "input_border",
@@ -70,7 +82,7 @@
     },
     {
       "name": "bubble_user",
-      "value": "#1A1A1A"
+      "value": "#202020"
     },
     {
       "name": "code_block_bg",

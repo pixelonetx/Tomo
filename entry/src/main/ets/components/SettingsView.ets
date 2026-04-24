@@ -10,11 +10,11 @@ export function ApiKeySettingsPanel(
   onSearchSaved: () => void = (): void => {
   }
 ) {
-  Column({ space: 18 }) {
+  Column({ space: 16 }) {
     Column({ space: 6 }) {
       Text('API Keys')
-        .fontSize(20)
-        .fontWeight(FontWeight.Medium)
+        .fontSize(18)
+        .fontWeight(FontWeight.Regular)
         .fontColor($r('app.color.text_primary'))
         .width('100%')
 
@@ -37,7 +37,7 @@ export function ApiKeySettingsPanel(
       .fontSize(15)
       .fontColor($r('app.color.text_primary'))
       .placeholderColor($r('app.color.text_placeholder'))
-      .backgroundColor($r('app.color.input_bar_background'))
+      .backgroundColor($r('app.color.surface_background'))
       .border({ width: 1, color: $r('app.color.input_border') })
       .borderRadius(10)
       .height(46)
@@ -58,7 +58,7 @@ export function ApiKeySettingsPanel(
         .layoutWeight(1)
         .height(42)
         .fontColor($r('app.color.text_primary'))
-        .backgroundColor(Color.Transparent)
+        .backgroundColor($r('app.color.surface_background'))
         .border({ width: 1, color: $r('app.color.divider') })
         .borderRadius(10)
         .onClick((): void => {
@@ -69,7 +69,7 @@ export function ApiKeySettingsPanel(
         .layoutWeight(1)
         .height(42)
         .fontColor($r('app.color.text_primary'))
-        .backgroundColor(Color.Transparent)
+        .backgroundColor($r('app.color.surface_background'))
         .border({ width: 1, color: $r('app.color.divider') })
         .borderRadius(10)
         .onClick((): void => {
@@ -100,7 +100,7 @@ export function ApiKeySettingsPanel(
       .fontSize(15)
       .fontColor($r('app.color.text_primary'))
       .placeholderColor($r('app.color.text_placeholder'))
-      .backgroundColor($r('app.color.input_bar_background'))
+      .backgroundColor($r('app.color.surface_background'))
       .border({ width: 1, color: $r('app.color.input_border') })
       .borderRadius(10)
       .height(46)
@@ -114,7 +114,7 @@ export function ApiKeySettingsPanel(
         .layoutWeight(1)
         .height(42)
         .fontColor($r('app.color.text_primary'))
-        .backgroundColor(Color.Transparent)
+        .backgroundColor($r('app.color.surface_background'))
         .border({ width: 1, color: $r('app.color.divider') })
         .borderRadius(10)
         .onClick((): void => {
@@ -125,7 +125,7 @@ export function ApiKeySettingsPanel(
         .layoutWeight(1)
         .height(42)
         .fontColor($r('app.color.text_primary'))
-        .backgroundColor(Color.Transparent)
+        .backgroundColor($r('app.color.surface_background'))
         .border({ width: 1, color: $r('app.color.divider') })
         .borderRadius(10)
         .onClick((): void => {
@@ -159,7 +159,7 @@ export function SettingsView(
   onShowAbout: () => void
 ) {
   NavDestination() {
-    List({ space: 14 }) {
+    List({ space: 12 }) {
       ListItem() {
         SectionTitle('Model')
       }
@@ -169,7 +169,7 @@ export function SettingsView(
             .layoutWeight(1)
             .height(40)
             .fontColor(vm.modelMode === ModelMode.CHAT ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-            .backgroundColor(vm.modelMode === ModelMode.CHAT ? $r('app.color.button_primary') : Color.Transparent)
+            .backgroundColor(vm.modelMode === ModelMode.CHAT ? $r('app.color.button_primary') : $r('app.color.surface_background'))
             .border({ width: 1, color: $r('app.color.divider') })
             .borderRadius(8)
             .onClick((): void => {
@@ -179,7 +179,7 @@ export function SettingsView(
             .layoutWeight(1)
             .height(40)
             .fontColor(vm.modelMode === ModelMode.REASONER ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-            .backgroundColor(vm.modelMode === ModelMode.REASONER ? $r('app.color.button_primary') : Color.Transparent)
+            .backgroundColor(vm.modelMode === ModelMode.REASONER ? $r('app.color.button_primary') : $r('app.color.surface_background'))
             .border({ width: 1, color: $r('app.color.divider') })
             .borderRadius(8)
             .onClick((): void => {
@@ -198,7 +198,7 @@ export function SettingsView(
             .width(44)
             .height(40)
             .fontColor($r('app.color.text_primary'))
-            .backgroundColor(Color.Transparent)
+            .backgroundColor($r('app.color.surface_background'))
             .border({ width: 1, color: $r('app.color.divider') })
             .borderRadius(8)
             .onClick((): void => {
@@ -213,7 +213,7 @@ export function SettingsView(
             .width(44)
             .height(40)
             .fontColor($r('app.color.text_primary'))
-            .backgroundColor(Color.Transparent)
+            .backgroundColor($r('app.color.surface_background'))
             .border({ width: 1, color: $r('app.color.divider') })
             .borderRadius(8)
             .onClick((): void => {
@@ -234,7 +234,7 @@ export function SettingsView(
               .height(40)
               .fontSize(13)
               .fontColor(vm.getContextWindowText() === 'Standard 128K' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-              .backgroundColor(vm.getContextWindowText() === 'Standard 128K' ? $r('app.color.button_primary') : Color.Transparent)
+              .backgroundColor(vm.getContextWindowText() === 'Standard 128K' ? $r('app.color.button_primary') : $r('app.color.surface_background'))
               .border({ width: 1, color: $r('app.color.divider') })
               .borderRadius(8)
               .onClick((): void => {
@@ -245,7 +245,7 @@ export function SettingsView(
               .height(40)
               .fontSize(13)
               .fontColor(vm.getContextWindowText() === 'Extended' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-              .backgroundColor(vm.getContextWindowText() === 'Extended' ? $r('app.color.button_primary') : Color.Transparent)
+              .backgroundColor(vm.getContextWindowText() === 'Extended' ? $r('app.color.button_primary') : $r('app.color.surface_background'))
               .border({ width: 1, color: $r('app.color.divider') })
               .borderRadius(8)
               .onClick((): void => {
@@ -271,7 +271,7 @@ export function SettingsView(
             .layoutWeight(1)
             .height(40)
             .fontColor(vm.webSearchEnabled ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-            .backgroundColor(vm.webSearchEnabled ? $r('app.color.button_primary') : Color.Transparent)
+            .backgroundColor(vm.webSearchEnabled ? $r('app.color.button_primary') : $r('app.color.surface_background'))
             .border({ width: 1, color: $r('app.color.divider') })
             .borderRadius(8)
             .onClick((): void => {
@@ -281,7 +281,7 @@ export function SettingsView(
             .width(44)
             .height(40)
             .fontColor($r('app.color.text_primary'))
-            .backgroundColor(Color.Transparent)
+            .backgroundColor($r('app.color.surface_background'))
             .border({ width: 1, color: $r('app.color.divider') })
             .borderRadius(8)
             .onClick((): void => {
@@ -296,7 +296,7 @@ export function SettingsView(
             .width(44)
             .height(40)
             .fontColor($r('app.color.text_primary'))
-            .backgroundColor(Color.Transparent)
+            .backgroundColor($r('app.color.surface_background'))
             .border({ width: 1, color: $r('app.color.divider') })
             .borderRadius(8)
             .onClick((): void => {
@@ -327,7 +327,7 @@ export function SettingsView(
               .layoutWeight(1)
               .height(40)
               .fontColor($r('app.color.text_primary'))
-              .backgroundColor(Color.Transparent)
+              .backgroundColor($r('app.color.surface_background'))
               .border({ width: 1, color: $r('app.color.divider') })
               .borderRadius(8)
               .onClick((): void => {
@@ -337,7 +337,7 @@ export function SettingsView(
               .layoutWeight(1)
               .height(40)
               .fontColor($r('app.color.text_primary'))
-              .backgroundColor(Color.Transparent)
+              .backgroundColor($r('app.color.surface_background'))
               .border({ width: 1, color: $r('app.color.divider') })
               .borderRadius(8)
               .onClick((): void => {
@@ -371,7 +371,7 @@ export function SettingsView(
               .height(40)
               .fontSize(13)
               .fontColor($r('app.color.text_primary'))
-              .backgroundColor(Color.Transparent)
+              .backgroundColor($r('app.color.surface_background'))
               .border({ width: 1, color: $r('app.color.divider') })
               .borderRadius(8)
               .onClick((): void => {
@@ -382,7 +382,7 @@ export function SettingsView(
               .height(40)
               .fontSize(13)
               .fontColor($r('app.color.text_primary'))
-              .backgroundColor(Color.Transparent)
+              .backgroundColor($r('app.color.surface_background'))
               .border({ width: 1, color: $r('app.color.divider') })
               .borderRadius(8)
               .onClick((): void => {
@@ -396,7 +396,7 @@ export function SettingsView(
               .height(40)
               .fontSize(13)
               .fontColor($r('app.color.text_primary'))
-              .backgroundColor(Color.Transparent)
+              .backgroundColor($r('app.color.surface_background'))
               .border({ width: 1, color: $r('app.color.divider') })
               .borderRadius(8)
               .onClick((): void => {
@@ -407,7 +407,7 @@ export function SettingsView(
               .height(40)
               .fontSize(13)
               .fontColor($r('app.color.text_primary'))
-              .backgroundColor(Color.Transparent)
+              .backgroundColor($r('app.color.surface_background'))
               .border({ width: 1, color: $r('app.color.divider') })
               .borderRadius(8)
               .onClick((): void => {
@@ -431,7 +431,7 @@ export function SettingsView(
           .width('100%')
           .height(42)
           .fontColor($r('app.color.text_primary'))
-          .backgroundColor(Color.Transparent)
+          .backgroundColor($r('app.color.surface_background'))
           .border({ width: 1, color: $r('app.color.divider') })
           .borderRadius(8)
           .onClick((): void => {
@@ -441,7 +441,7 @@ export function SettingsView(
     }
     .width('100%')
     .height('100%')
-    .padding({ left: 18, right: 18, top: 14, bottom: 22 })
+    .padding({ left: 18, right: 18, top: 12, bottom: 24 })
     .backgroundColor($r('app.color.page_background'))
   }
   .title('Settings')
@@ -452,7 +452,7 @@ export function SettingsView(
 function SectionTitle(title: string) {
   Text(title)
     .fontSize(13)
-    .fontWeight(FontWeight.Medium)
+    .fontWeight(FontWeight.Regular)
     .fontColor($r('app.color.text_secondary'))
     .width('100%')
 }

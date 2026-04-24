@@ -59,7 +59,7 @@ export struct WebBrowserDestination {
         Column({ space: 4 }) {
           Text(this.pageTitle)
             .fontSize(15)
-            .fontWeight(FontWeight.Medium)
+            .fontWeight(FontWeight.Regular)
             .fontColor($r('app.color.text_primary'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -73,7 +73,8 @@ export struct WebBrowserDestination {
             .width('100%')
         }
         .width('100%')
-        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+        .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+        .backgroundColor($r('app.color.surface_background'))
         .border({ width: { bottom: 1 }, color: $r('app.color.divider') })
 
         if (this.errorMessage.length > 0) {
@@ -86,7 +87,7 @@ export struct WebBrowserDestination {
               .width('76%')
 
             Button('Open in browser')
-              .height(42)
+              .height(44)
               .fontColor($r('app.color.text_on_primary'))
               .backgroundColor($r('app.color.button_primary'))
               .borderRadius(10)
