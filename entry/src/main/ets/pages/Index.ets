@@ -4,7 +4,24 @@ import { util } from '@kit.ArkTS';
 import { fileIo, picker } from '@kit.CoreFileKit';
 import { APP_NAME } from '../shared/Constants';
 import { MarkdownMessageView } from '../components/MarkdownMessageView';
-import { ApiKeySettingsPanel, SettingsView } from '../components/SettingsView';
+import {
+  ApiKeySettingsPanel,
+  SETTINGS_ACCOUNT_ROUTE,
+  SETTINGS_CONTEXT_ROUTE,
+  SETTINGS_DATA_ROUTE,
+  SETTINGS_KEYS_ROUTE,
+  SETTINGS_MODEL_ROUTE,
+  SETTINGS_READING_ROUTE,
+  SETTINGS_SEARCH_ROUTE,
+  SettingsAccountPage,
+  SettingsContextPage,
+  SettingsDataPage,
+  SettingsKeysPage,
+  SettingsModelPage,
+  SettingsReadingPage,
+  SettingsSearchPage,
+  SettingsView
+} from '../components/SettingsView';
 import { DangerConfirmSheet, EditMessageSheet, MessageDetailSheet } from '../components/MessageSheets';
 import { ChatMessage, Conversation, MessageRole, SendStatus } from '../models/ChatModels';
 import { WEB_BROWSER_ROUTE, WebBrowserDestination, WebBrowserParam } from './WebBrowser';
@@ -105,17 +122,42 @@ struct Index {
     if (name === SETTINGS_ROUTE) {
       SettingsView(
         this.vm,
-        (text: string): void => {
-          this.copyText(text);
+        (route: string): void => {
+          this.navPathStack.pushPath({ name: route });
         },
+        (): void => {
+          this.showAboutSheet = true;
+        }
+      );
+    }
+    if (name === SETTINGS_MODEL_ROUTE) {
+      SettingsModelPage(this.vm);
+    }
+    if (name === SETTINGS_READING_ROUTE) {
+      SettingsReadingPage(this.vm);
+    }
+    if (name === SETTINGS_CONTEXT_ROUTE) {
+      SettingsContextPage(this.vm);
+    }
+    if (name === SETTINGS_SEARCH_ROUTE) {
+      SettingsSearchPage(this.vm);
+    }
+    if (name === SETTINGS_KEYS_ROUTE) {
+      SettingsKeysPage(this.vm);
+    }
+    if (name === SETTINGS_ACCOUNT_ROUTE) {
+      SettingsAccountPage(this.vm, (text: string): void => {
+        this.copyText(text);
+      });
+    }
+    if (name === SETTINGS_DATA_ROUTE) {
+      SettingsDataPage(
+        this.vm,
         (format: string): void => {
           this.exportCurrentConversation(format);
         },
         (action: string): void => {
           this.showDangerConfirm(action);
-        },
-        (): void => {
-          this.showAboutSheet = true;
         }
       );
     }

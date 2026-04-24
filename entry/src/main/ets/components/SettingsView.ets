@@ -1,6 +1,14 @@
 import { ModelMode } from '../models/ApiModels';
 import { ChatViewModel } from '../viewmodels/ChatViewModel';
 
+export const SETTINGS_MODEL_ROUTE: string = 'SettingsModel';
+export const SETTINGS_READING_ROUTE: string = 'SettingsReading';
+export const SETTINGS_CONTEXT_ROUTE: string = 'SettingsContext';
+export const SETTINGS_SEARCH_ROUTE: string = 'SettingsSearch';
+export const SETTINGS_KEYS_ROUTE: string = 'SettingsKeys';
+export const SETTINGS_ACCOUNT_ROUTE: string = 'SettingsAccount';
+export const SETTINGS_DATA_ROUTE: string = 'SettingsData';
+
 @Builder
 function SettingsIconButton(icon: Resource, label: string, action: () => void, primary: boolean = false) {
   Row({ space: 7 }) {
@@ -25,15 +33,51 @@ function SettingsIconButton(icon: Resource, label: string, action: () => void, p
 }
 
 @Builder
-function SettingsWideIconButton(icon: Resource, label: string, action: () => void) {
-  Row({ space: 8 }) {
+function SettingsGroupRow(icon: Resource, title: string, detail: string, action: () => void) {
+  Row({ space: 12 }) {
     Image(icon)
-      .width(16)
-      .height(16)
+      .width(18)
+      .height(18)
       .objectFit(ImageFit.Contain)
+    Column({ space: 3 }) {
+      Text(title)
+        .fontSize(15)
+        .fontColor($r('app.color.text_primary'))
+        .width('100%')
+      Text(detail)
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+    }
+    .layoutWeight(1)
+    Image($r('app.media.lucide_chevron_right'))
+      .width(15)
+      .height(15)
+      .objectFit(ImageFit.Contain)
+  }
+  .width('100%')
+  .height(58)
+  .padding({ left: 12, right: 12, top: 9, bottom: 9 })
+  .backgroundColor($r('app.color.surface_background'))
+  .border({ width: 1, color: $r('app.color.divider') })
+  .borderRadius(8)
+  .onClick(action)
+}
+
+@Builder
+function SettingsValueRow(label: string, value: string) {
+  Row() {
     Text(label)
       .fontSize(14)
       .fontColor($r('app.color.text_primary'))
+    Blank()
+    Text(value)
+      .fontSize(13)
+      .fontColor($r('app.color.text_secondary'))
+      .textAlign(TextAlign.End)
+      .constraintSize({ maxWidth: '58%' })
   }
   .width('100%')
   .height(42)
@@ -41,7 +85,38 @@ function SettingsWideIconButton(icon: Resource, label: string, action: () => voi
   .backgroundColor($r('app.color.surface_background'))
   .border({ width: 1, color: $r('app.color.divider') })
   .borderRadius(8)
-  .onClick(action)
+}
+
+@Builder
+function SettingsStepper(label: string, value: string, onMinus: () => void, onPlus: () => void) {
+  Row({ space: 10 }) {
+    Text(label)
+      .fontSize(14)
+      .fontColor($r('app.color.text_primary'))
+      .layoutWeight(1)
+    Button('-')
+      .width(44)
+      .height(40)
+      .fontColor($r('app.color.text_primary'))
+      .backgroundColor($r('app.color.surface_background'))
+      .border({ width: 1, color: $r('app.color.divider') })
+      .borderRadius(8)
+      .onClick(onMinus)
+    Text(value)
+      .fontSize(14)
+      .fontColor($r('app.color.text_primary'))
+      .textAlign(TextAlign.Center)
+      .width(64)
+    Button('+')
+      .width(44)
+      .height(40)
+      .fontColor($r('app.color.text_primary'))
+      .backgroundColor($r('app.color.surface_background'))
+      .border({ width: 1, color: $r('app.color.divider') })
+      .borderRadius(8)
+      .onClick(onPlus)
+  }
+  .width('100%')
 }
 
 @Builder
@@ -155,15 +230,82 @@ export function ApiKeySettingsPanel(
 @Builder
 export function SettingsView(
   vm: ChatViewModel,
-  onCopyText: (text: string) => void,
-  onExportConversation: (format: string) => void,
-  onShowDangerConfirm: (action: string) => void,
+  onOpenSection: (route: string) => void,
   onShowAbout: () => void
 ) {
   NavDestination() {
     List({ space: 12 }) {
       ListItem() {
-        SectionTitle('Model')
+        SectionTitle('Chat')
+      }
+      ListItem() {
+        SettingsGroupRow($r('app.media.lucide_settings'), 'Model', vm.modelMode === ModelMode.CHAT ? 'V4 Flash' : 'V4 Pro', (): void => {
+          onOpenSection(SETTINGS_MODEL_ROUTE);
+        })
+      }
+      ListItem() {
+        SettingsGroupRow($r('app.media.lucide_pencil'), 'Reading', `Font ${vm.fontSize}`, (): void => {
+          onOpenSection(SETTINGS_READING_ROUTE);
+        })
+      }
+      ListItem() {
+        SettingsGroupRow($r('app.media.lucide_info'), 'Context', vm.getContextWindowText(), (): void => {
+          onOpenSection(SETTINGS_CONTEXT_ROUTE);
+        })
+      }
+
+      ListItem() {
+        SectionTitle('Tools')
+      }
+      ListItem() {
+        SettingsGroupRow($r('app.media.lucide_search'), 'Web Search', vm.webSearchEnabled ? `Default on, max ${vm.getSearchMaxResults()}` : `Default off, max ${vm.getSearchMaxResults()}`, (): void => {
+          onOpenSection(SETTINGS_SEARCH_ROUTE);
+        })
+      }
+
+      ListItem() {
+        SectionTitle('Keys & Account')
+      }
+      ListItem() {
+        SettingsGroupRow($r('app.media.lucide_key_round'), 'API Keys', vm.getProviderStatusText(), (): void => {
+          onOpenSection(SETTINGS_KEYS_ROUTE);
+        })
+      }
+      ListItem() {
+        SettingsGroupRow($r('app.media.lucide_info'), 'Account', vm.balanceMessage.length > 0 ? vm.balanceMessage : 'Balance and provider status', (): void => {
+          onOpenSection(SETTINGS_ACCOUNT_ROUTE);
+        })
+      }
+
+      ListItem() {
+        SectionTitle('Storage')
+      }
+      ListItem() {
+        SettingsGroupRow($r('app.media.lucide_copy'), 'Data', vm.getConversationCountText(), (): void => {
+          onOpenSection(SETTINGS_DATA_ROUTE);
+        })
+      }
+      ListItem() {
+        SettingsGroupRow($r('app.media.lucide_info'), 'About & licenses', 'Open source notices', (): void => {
+          onShowAbout();
+        })
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 18, right: 18, top: 12, bottom: 24 })
+    .backgroundColor($r('app.color.page_background'))
+  }
+  .title('Settings')
+  .hideTitleBar(false)
+}
+
+@Builder
+export function SettingsModelPage(vm: ChatViewModel) {
+  NavDestination() {
+    List({ space: 12 }) {
+      ListItem() {
+        SectionTitle('DeepSeek model')
       }
       ListItem() {
         Row({ space: 10 }) {
@@ -190,233 +332,105 @@ export function SettingsView(
         }
         .width('100%')
       }
-
       ListItem() {
-        SectionTitle('Reading')
-      }
-      ListItem() {
-        Row({ space: 10 }) {
-          Button('-')
-            .width(44)
-            .height(40)
-            .fontColor($r('app.color.text_primary'))
-            .backgroundColor($r('app.color.surface_background'))
-            .border({ width: 1, color: $r('app.color.divider') })
-            .borderRadius(8)
-            .onClick((): void => {
-              vm.setFontSize(vm.fontSize - 1);
-            })
-          Text(`Font ${vm.fontSize}`)
-            .fontSize(14)
-            .fontColor($r('app.color.text_primary'))
-            .textAlign(TextAlign.Center)
-            .layoutWeight(1)
-          Button('+')
-            .width(44)
-            .height(40)
-            .fontColor($r('app.color.text_primary'))
-            .backgroundColor($r('app.color.surface_background'))
-            .border({ width: 1, color: $r('app.color.divider') })
-            .borderRadius(8)
-            .onClick((): void => {
-              vm.setFontSize(vm.fontSize + 1);
-            })
-        }
-        .width('100%')
-      }
-
-      ListItem() {
-        SectionTitle('Context')
-      }
-      ListItem() {
-        Column({ space: 10 }) {
-          Row() {
-            Text(vm.getContextWindowText())
-              .fontSize(14)
-              .fontColor($r('app.color.text_primary'))
-          }
+        Text('V4 Flash is the default chat model. V4 Pro enables thinking mode for harder prompts.')
+          .fontSize(13)
+          .fontColor($r('app.color.text_secondary'))
+          .lineHeight(19)
           .width('100%')
-          .height(40)
-          .padding({ left: 12, right: 12 })
-          .backgroundColor($r('app.color.surface_background'))
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 18, right: 18, top: 12, bottom: 24 })
+    .backgroundColor($r('app.color.page_background'))
+  }
+  .title('Model')
+  .hideTitleBar(false)
+}
+
+@Builder
+export function SettingsReadingPage(vm: ChatViewModel) {
+  NavDestination() {
+    List({ space: 12 }) {
+      ListItem() {
+        SectionTitle('Message text')
+      }
+      ListItem() {
+        SettingsStepper('Font size', `${vm.fontSize}`, (): void => {
+          vm.setFontSize(vm.fontSize - 1);
+        }, (): void => {
+          vm.setFontSize(vm.fontSize + 1);
+        })
+      }
+      ListItem() {
+        Text('Main message timestamps stay in Details so the chat stream remains calm and readable.')
+          .fontSize(13)
+          .fontColor($r('app.color.text_secondary'))
+          .lineHeight(19)
+          .width('100%')
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 18, right: 18, top: 12, bottom: 24 })
+    .backgroundColor($r('app.color.page_background'))
+  }
+  .title('Reading')
+  .hideTitleBar(false)
+}
+
+@Builder
+export function SettingsContextPage(vm: ChatViewModel) {
+  NavDestination() {
+    List({ space: 12 }) {
+      ListItem() {
+        SectionTitle('Window')
+      }
+      ListItem() {
+        SettingsValueRow('Context', vm.getContextWindowText())
+      }
+      ListItem() {
+        Text(vm.getContextUsageText())
+          .fontSize(13)
+          .fontColor($r('app.color.text_secondary'))
+          .lineHeight(19)
+          .width('100%')
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 18, right: 18, top: 12, bottom: 24 })
+    .backgroundColor($r('app.color.page_background'))
+  }
+  .title('Context')
+  .hideTitleBar(false)
+}
+
+@Builder
+export function SettingsSearchPage(vm: ChatViewModel) {
+  NavDestination() {
+    List({ space: 12 }) {
+      ListItem() {
+        SectionTitle('Default')
+      }
+      ListItem() {
+        Button(vm.webSearchEnabled ? 'Default On' : 'Default Off')
+          .width('100%')
+          .height(42)
+          .fontColor(vm.webSearchEnabled ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
+          .backgroundColor(vm.webSearchEnabled ? $r('app.color.button_primary') : $r('app.color.surface_background'))
           .border({ width: 1, color: $r('app.color.divider') })
           .borderRadius(8)
-          Text(vm.getContextUsageText())
-            .fontSize(13)
-            .fontColor($r('app.color.text_secondary'))
-            .lineHeight(19)
-            .width('100%')
-        }
-        .width('100%')
-      }
-
-      ListItem() {
-        SectionTitle('Web Search')
+          .onClick((): void => {
+            vm.setWebSearchDefault(!vm.webSearchEnabled);
+          })
       }
       ListItem() {
-        Row({ space: 10 }) {
-          Button(vm.webSearchEnabled ? 'Default On' : 'Default Off')
-            .layoutWeight(1)
-            .height(40)
-            .fontColor(vm.webSearchEnabled ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-            .backgroundColor(vm.webSearchEnabled ? $r('app.color.button_primary') : $r('app.color.surface_background'))
-            .border({ width: 1, color: $r('app.color.divider') })
-            .borderRadius(8)
-            .onClick((): void => {
-              vm.setWebSearchDefault(!vm.webSearchEnabled);
-            })
-          Button('-')
-            .width(44)
-            .height(40)
-            .fontColor($r('app.color.text_primary'))
-            .backgroundColor($r('app.color.surface_background'))
-            .border({ width: 1, color: $r('app.color.divider') })
-            .borderRadius(8)
-            .onClick((): void => {
-              vm.setSearchMaxResults(vm.getSearchMaxResults() - 1);
-            })
-          Text(`Max ${vm.getSearchMaxResults()}`)
-            .fontSize(14)
-            .fontColor($r('app.color.text_primary'))
-            .textAlign(TextAlign.Center)
-            .width(64)
-          Button('+')
-            .width(44)
-            .height(40)
-            .fontColor($r('app.color.text_primary'))
-            .backgroundColor($r('app.color.surface_background'))
-            .border({ width: 1, color: $r('app.color.divider') })
-            .borderRadius(8)
-            .onClick((): void => {
-              vm.setSearchMaxResults(vm.getSearchMaxResults() + 1);
-            })
-        }
-        .width('100%')
-      }
-
-      ListItem() {
-        SectionTitle('API Keys')
-      }
-      ListItem() {
-        ApiKeySettingsPanel(vm)
-      }
-
-      ListItem() {
-        SectionTitle('Account')
-      }
-      ListItem() {
-        Column({ space: 10 }) {
-          Text(vm.getProviderStatusText())
-            .fontSize(13)
-            .fontColor($r('app.color.text_secondary'))
-            .width('100%')
-          Row({ space: 10 }) {
-            Button('Check balance')
-              .layoutWeight(1)
-              .height(40)
-              .fontColor($r('app.color.text_primary'))
-              .backgroundColor($r('app.color.surface_background'))
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                vm.checkBalance();
-              })
-            Button('Copy status')
-              .layoutWeight(1)
-              .height(40)
-              .fontColor($r('app.color.text_primary'))
-              .backgroundColor($r('app.color.surface_background'))
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                onCopyText(vm.getProviderStatusText());
-              })
-          }
-          .width('100%')
-          if (vm.balanceMessage.length > 0) {
-            Text(vm.balanceMessage)
-              .fontSize(13)
-              .fontColor($r('app.color.text_secondary'))
-              .lineHeight(19)
-              .width('100%')
-          }
-        }
-        .width('100%')
-      }
-
-      ListItem() {
-        SectionTitle('Data')
-      }
-      ListItem() {
-        Column({ space: 10 }) {
-          Text(vm.getConversationCountText())
-            .fontSize(13)
-            .fontColor($r('app.color.text_secondary'))
-            .width('100%')
-          Row({ space: 10 }) {
-            Button('Export Markdown')
-              .layoutWeight(1)
-              .height(40)
-              .fontSize(13)
-              .fontColor($r('app.color.text_primary'))
-              .backgroundColor($r('app.color.surface_background'))
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                onExportConversation('markdown');
-              })
-            Button('Export JSON')
-              .layoutWeight(1)
-              .height(40)
-              .fontSize(13)
-              .fontColor($r('app.color.text_primary'))
-              .backgroundColor($r('app.color.surface_background'))
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                onExportConversation('json');
-              })
-          }
-          .width('100%')
-          Row({ space: 10 }) {
-            Button('Clear chats')
-              .layoutWeight(1)
-              .height(40)
-              .fontSize(13)
-              .fontColor($r('app.color.text_primary'))
-              .backgroundColor($r('app.color.surface_background'))
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                onShowDangerConfirm('chats');
-              })
-            Button('Clear settings')
-              .layoutWeight(1)
-              .height(40)
-              .fontSize(13)
-              .fontColor($r('app.color.text_primary'))
-              .backgroundColor($r('app.color.surface_background'))
-              .border({ width: 1, color: $r('app.color.divider') })
-              .borderRadius(8)
-              .onClick((): void => {
-                onShowDangerConfirm('settings');
-              })
-          }
-          .width('100%')
-          if (vm.settingsMessage.length > 0) {
-            Text(vm.settingsMessage)
-              .fontSize(13)
-              .fontColor($r('app.color.text_secondary'))
-              .lineHeight(19)
-              .width('100%')
-          }
-        }
-        .width('100%')
-      }
-
-      ListItem() {
-        SettingsWideIconButton($r('app.media.lucide_info'), 'About & licenses', (): void => {
-          onShowAbout();
+        SettingsStepper('Max results', `${vm.getSearchMaxResults()}`, (): void => {
+          vm.setSearchMaxResults(vm.getSearchMaxResults() - 1);
+        }, (): void => {
+          vm.setSearchMaxResults(vm.getSearchMaxResults() + 1);
         })
       }
     }
@@ -425,7 +439,164 @@ export function SettingsView(
     .padding({ left: 18, right: 18, top: 12, bottom: 24 })
     .backgroundColor($r('app.color.page_background'))
   }
-  .title('Settings')
+  .title('Web Search')
+  .hideTitleBar(false)
+}
+
+@Builder
+export function SettingsKeysPage(vm: ChatViewModel) {
+  NavDestination() {
+    ApiKeySettingsPanel(vm)
+  }
+  .title('API Keys')
+  .hideTitleBar(false)
+}
+
+@Builder
+export function SettingsAccountPage(vm: ChatViewModel, onCopyText: (text: string) => void) {
+  NavDestination() {
+    List({ space: 12 }) {
+      ListItem() {
+        SectionTitle('Provider')
+      }
+      ListItem() {
+        Text(vm.getProviderStatusText())
+          .fontSize(13)
+          .fontColor($r('app.color.text_secondary'))
+          .lineHeight(19)
+          .width('100%')
+      }
+      ListItem() {
+        Row({ space: 10 }) {
+          Button('Check balance')
+            .layoutWeight(1)
+            .height(40)
+            .fontColor($r('app.color.text_primary'))
+            .backgroundColor($r('app.color.surface_background'))
+            .border({ width: 1, color: $r('app.color.divider') })
+            .borderRadius(8)
+            .onClick((): void => {
+              vm.checkBalance();
+            })
+          Button('Copy status')
+            .layoutWeight(1)
+            .height(40)
+            .fontColor($r('app.color.text_primary'))
+            .backgroundColor($r('app.color.surface_background'))
+            .border({ width: 1, color: $r('app.color.divider') })
+            .borderRadius(8)
+            .onClick((): void => {
+              onCopyText(vm.getProviderStatusText());
+            })
+        }
+        .width('100%')
+      }
+      if (vm.balanceMessage.length > 0) {
+        ListItem() {
+          Text(vm.balanceMessage)
+            .fontSize(13)
+            .fontColor($r('app.color.text_secondary'))
+            .lineHeight(19)
+            .width('100%')
+        }
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 18, right: 18, top: 12, bottom: 24 })
+    .backgroundColor($r('app.color.page_background'))
+  }
+  .title('Account')
+  .hideTitleBar(false)
+}
+
+@Builder
+export function SettingsDataPage(
+  vm: ChatViewModel,
+  onExportConversation: (format: string) => void,
+  onShowDangerConfirm: (action: string) => void
+) {
+  NavDestination() {
+    List({ space: 12 }) {
+      ListItem() {
+        SectionTitle('Conversations')
+      }
+      ListItem() {
+        Text(vm.getConversationCountText())
+          .fontSize(13)
+          .fontColor($r('app.color.text_secondary'))
+          .width('100%')
+      }
+      ListItem() {
+        Row({ space: 10 }) {
+          Button('Export Markdown')
+            .layoutWeight(1)
+            .height(40)
+            .fontSize(13)
+            .fontColor($r('app.color.text_primary'))
+            .backgroundColor($r('app.color.surface_background'))
+            .border({ width: 1, color: $r('app.color.divider') })
+            .borderRadius(8)
+            .onClick((): void => {
+              onExportConversation('markdown');
+            })
+          Button('Export JSON')
+            .layoutWeight(1)
+            .height(40)
+            .fontSize(13)
+            .fontColor($r('app.color.text_primary'))
+            .backgroundColor($r('app.color.surface_background'))
+            .border({ width: 1, color: $r('app.color.divider') })
+            .borderRadius(8)
+            .onClick((): void => {
+              onExportConversation('json');
+            })
+        }
+        .width('100%')
+      }
+      ListItem() {
+        Row({ space: 10 }) {
+          Button('Clear chats')
+            .layoutWeight(1)
+            .height(40)
+            .fontSize(13)
+            .fontColor($r('app.color.text_primary'))
+            .backgroundColor($r('app.color.surface_background'))
+            .border({ width: 1, color: $r('app.color.divider') })
+            .borderRadius(8)
+            .onClick((): void => {
+              onShowDangerConfirm('chats');
+            })
+          Button('Clear settings')
+            .layoutWeight(1)
+            .height(40)
+            .fontSize(13)
+            .fontColor($r('app.color.text_primary'))
+            .backgroundColor($r('app.color.surface_background'))
+            .border({ width: 1, color: $r('app.color.divider') })
+            .borderRadius(8)
+            .onClick((): void => {
+              onShowDangerConfirm('settings');
+            })
+          }
+          .width('100%')
+      }
+      if (vm.settingsMessage.length > 0) {
+        ListItem() {
+          Text(vm.settingsMessage)
+            .fontSize(13)
+            .fontColor($r('app.color.text_secondary'))
+            .lineHeight(19)
+            .width('100%')
+        }
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 18, right: 18, top: 12, bottom: 24 })
+    .backgroundColor($r('app.color.page_background'))
+  }
+  .title('Data')
   .hideTitleBar(false)
 }
 
