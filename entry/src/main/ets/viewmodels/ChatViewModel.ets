@@ -184,17 +184,17 @@ export class ChatViewModel {
       return;
     }
     this.setApiKey(cleanKey);
-    this.settingsMessage = 'Checking DeepSeek models...';
+    this.settingsMessage = 'Checking DeepSeek V4 models...';
     const models: ModelListResponse | null = await this.deepSeekService.fetchModels();
     if (models === null) {
       this.settingsMessage = '检查失败，请确认 API Key 和网络。';
       return;
     }
-    if (this.hasModel(models, 'deepseek-chat') && this.hasModel(models, 'deepseek-reasoner')) {
-      this.settingsMessage = 'Connected. Chat and Reasoner are available.';
+    if (this.hasModel(models, 'deepseek-v4-flash') && this.hasModel(models, 'deepseek-v4-pro')) {
+      this.settingsMessage = 'Connected. DeepSeek V4 Flash and Pro are available.';
       return;
     }
-    this.settingsMessage = 'Connected, but required models were not both found.';
+    this.settingsMessage = 'Connected, but DeepSeek V4 Flash and Pro were not both found.';
   }
 
   async checkBalance(): Promise<void> {
@@ -735,9 +735,9 @@ export class ChatViewModel {
 
   getContextWindowText(): string {
     if (this.settings.contextWindowChars >= CONTEXT_EXTENDED_CHAR_BUDGET) {
-      return 'Extended';
+      return 'V4 1M';
     }
-    return 'Standard 128K';
+    return 'Balanced 128K';
   }
 
   getContextUsageText(): string {

@@ -32,8 +32,8 @@ export default function localUnitTest() {
     });
 
     it('maps model modes to DeepSeek model ids', 0, () => {
-      expect(getDeepSeekModelId(ModelMode.CHAT)).assertEqual('deepseek-chat');
-      expect(getDeepSeekModelId(ModelMode.REASONER)).assertEqual('deepseek-reasoner');
+      expect(getDeepSeekModelId(ModelMode.CHAT)).assertEqual('deepseek-v4-flash');
+      expect(getDeepSeekModelId(ModelMode.REASONER)).assertEqual('deepseek-v4-pro');
     });
 
     it('builds chat and reasoner request bodies', 0, () => {
@@ -41,10 +41,14 @@ export default function localUnitTest() {
       const messages: ApiMessage[] = [{ role: 'assistant', content: 'done', reasoningContent: 'hidden' }];
       const chatBody = service.buildRequestBody(messages, ModelMode.CHAT);
       const reasonerBody = service.buildRequestBody(messages, ModelMode.REASONER);
-      expect(chatBody.model).assertEqual('deepseek-chat');
+      expect(chatBody.model).assertEqual('deepseek-v4-flash');
       expect(chatBody.temperature).assertEqual(1.0);
-      expect(chatBody.messages[0].reasoning_content).assertEqual('hidden');
-      expect(reasonerBody.model).assertEqual('deepseek-reasoner');
+      expect(chatBody.thinking?.type).assertEqual('disabled');
+      expect(chatBody.messages[0].reasoning_content).assertUndefined();
+      expect(reasonerBody.model).assertEqual('deepseek-v4-pro');
+      expect(reasonerBody.thinking?.type).assertEqual('enabled');
+      expect(reasonerBody.reasoning_effort).assertEqual('high');
+      expect(reasonerBody.temperature).assertUndefined();
       expect(reasonerBody.messages[0].reasoning_content).assertUndefined();
     });
 
@@ -57,6 +61,7 @@ export default function localUnitTest() {
       expect(requestBody.stream).assertFalse();
       expect(requestBody.tool_choice).assertEqual('auto');
       expect(requestBody.tools?.length).assertEqual(1);
+      expect(requestBody.thinking?.type).assertEqual('disabled');
       const streamToolBody = service.buildStreamToolRequestBody([{ role: 'user', content: 'latest DeepSeek API changes' }], ModelMode.CHAT, [tool]);
       expect(streamToolBody.stream).assertTrue();
       expect(streamToolBody.tool_choice).assertEqual('auto');
@@ -68,6 +73,8 @@ export default function localUnitTest() {
       expect(finalBody.stream).assertTrue();
       expect(finalBody.tool_choice).assertEqual('none');
       expect(finalBody.tools?.length).assertEqual(1);
+      expect(finalBody.thinking?.type).assertEqual('enabled');
+      expect(finalBody.reasoning_effort).assertEqual('high');
       expect(finalBody.messages[0].reasoning_content).assertEqual('tool thinking');
       expect(finalBody.messages[0].tool_calls?.length).assertEqual(1);
       expect(finalBody.messages[1].tool_call_id).assertEqual('call_1');
@@ -96,18 +103,18 @@ export default function localUnitTest() {
     });
 
     it('parses DeepSeek stream content and reasoning chunks', 0, () => {
-      const payload = 'data: {"id":"chatcmpl-1","created":1,"model":"deepseek-reasoner","system_fingerprint":"fp","choices":[{"delta":{"content":"answer","reasoning_content":"think"},"finish_reason":"stop"}]}\n\n';
+      const payload = 'data: {"id":"chatcmpl-1","created":1,"model":"deepseek-v4-pro","system_fingerprint":"fp","choices":[{"delta":{"content":"answer","reasoning_content":"think"},"finish_reason":"stop"}]}\n\n';
       const deltas = parseSseChunk(payload);
       expect(deltas.length).assertEqual(1);
       expect(deltas[0].content).assertEqual('answer');
       expect(deltas[0].reasoningContent).assertEqual('think');
       expect(deltas[0].finishReason).assertEqual('stop');
-      expect(deltas[0].metadata?.model).assertEqual('deepseek-reasoner');
+      expect(deltas[0].metadata?.model).assertEqual('deepseek-v4-pro');
     });
 
     it('parses streaming tool call deltas', 0, () => {
-      const payload = 'data: {"id":"chatcmpl-tool","created":2,"model":"deepseek-chat","choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"web_search","arguments":"{\\\"query\\\":\\\"Deep"}}]},"finish_reason":null}]}\n\n' +
-        'data: {"id":"chatcmpl-tool","created":2,"model":"deepseek-chat","choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"Seek API\\\",\\\"freshness\\\":\\\"week\\\"}"}}]},"finish_reason":"tool_calls"}]}\n\n';
+      const payload = 'data: {"id":"chatcmpl-tool","created":2,"model":"deepseek-v4-flash","choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"web_search","arguments":"{\\\"query\\\":\\\"Deep"}}]},"finish_reason":null}]}\n\n' +
+        'data: {"id":"chatcmpl-tool","created":2,"model":"deepseek-v4-flash","choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"Seek API\\\",\\\"freshness\\\":\\\"week\\\"}"}}]},"finish_reason":"tool_calls"}]}\n\n';
       const deltas = parseSseChunk(payload);
       expect(deltas.length).assertEqual(2);
       expect(deltas[0].toolCallDeltas.length).assertEqual(1);
@@ -167,10 +174,10 @@ export default function localUnitTest() {
     });
 
     it('parses model list response', 0, () => {
-      const response = parseModelListResponse('{"object":"list","data":[{"id":"deepseek-chat","object":"model","owned_by":"deepseek"},{"id":"deepseek-reasoner","object":"model","owned_by":"deepseek"}]}');
+      const response = parseModelListResponse('{"object":"list","data":[{"id":"deepseek-v4-flash","object":"model","owned_by":"deepseek"},{"id":"deepseek-v4-pro","object":"model","owned_by":"deepseek"}]}');
       expect(response?.object).assertEqual('list');
       expect(response?.data.length).assertEqual(2);
-      expect(response?.data[1].id).assertEqual('deepseek-reasoner');
+      expect(response?.data[1].id).assertEqual('deepseek-v4-pro');
     });
 
     it('parses balance response shape', 0, () => {

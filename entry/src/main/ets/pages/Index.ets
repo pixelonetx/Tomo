@@ -151,7 +151,7 @@ struct Index {
         .fontSize(24)
         .fontWeight(FontWeight.Regular)
         .fontColor($r('app.color.text_primary'))
-      Text('Ask with DeepSeek Chat or Reasoner. Search stays off until you choose it.')
+      Text('Ask with DeepSeek V4. Search stays off until you choose it.')
         .fontSize(14)
         .fontColor($r('app.color.text_secondary'))
         .textAlign(TextAlign.Center)
@@ -579,7 +579,7 @@ struct Index {
           .fontColor($r('app.color.text_primary'))
           .width('100%')
 
-        Text('A local HarmonyOS DeepSeek chat client. Third-party notices for bundled runtime assets are listed below.')
+        Text('A local HarmonyOS DeepSeek V4 chat client. Third-party notices for bundled runtime assets are listed below.')
           .fontSize(13)
           .fontColor($r('app.color.text_secondary'))
           .lineHeight(19)

@@ -24,10 +24,16 @@ export interface ChatCompletionRequest {
   messages: ApiRequestMessage[];
   stream: boolean;
   stream_options?: StreamOptions;
+  thinking?: ThinkingOptions;
+  reasoning_effort?: string;
   temperature?: number;
   max_tokens: number;
   tools?: ApiToolDefinition[];
   tool_choice?: string;
+}
+
+export interface ThinkingOptions {
+  type: string;
 }
 
 export interface StreamOptions {
@@ -140,9 +146,16 @@ export interface StreamCallback {
 
 export function getDeepSeekModelId(mode: ModelMode): string {
   if (mode === ModelMode.REASONER) {
-    return 'deepseek-reasoner';
+    return 'deepseek-v4-pro';
   }
-  return 'deepseek-chat';
+  return 'deepseek-v4-flash';
+}
+
+export function getDeepSeekThinkingType(mode: ModelMode): string {
+  if (mode === ModelMode.REASONER) {
+    return 'enabled';
+  }
+  return 'disabled';
 }
 
 export function createEmptyUsage(): UsageInfo {

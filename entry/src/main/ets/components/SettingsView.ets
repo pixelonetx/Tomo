@@ -168,7 +168,7 @@ export function SettingsView(
       }
       ListItem() {
         Row({ space: 10 }) {
-          Button('Chat')
+          Button('V4 Flash')
             .layoutWeight(1)
             .height(40)
             .fontColor(vm.modelMode === ModelMode.CHAT ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
@@ -178,7 +178,7 @@ export function SettingsView(
             .onClick((): void => {
               vm.setModelMode(ModelMode.CHAT);
             })
-          Button('Reasoner')
+          Button('V4 Pro')
             .layoutWeight(1)
             .height(40)
             .fontColor(vm.modelMode === ModelMode.REASONER ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
@@ -232,23 +232,23 @@ export function SettingsView(
       ListItem() {
         Column({ space: 10 }) {
           Row({ space: 10 }) {
-            Button('Standard 128K')
+            Button('Balanced 128K')
               .layoutWeight(1)
               .height(40)
               .fontSize(13)
-              .fontColor(vm.getContextWindowText() === 'Standard 128K' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-              .backgroundColor(vm.getContextWindowText() === 'Standard 128K' ? $r('app.color.button_primary') : $r('app.color.surface_background'))
+              .fontColor(vm.getContextWindowText() === 'Balanced 128K' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
+              .backgroundColor(vm.getContextWindowText() === 'Balanced 128K' ? $r('app.color.button_primary') : $r('app.color.surface_background'))
               .border({ width: 1, color: $r('app.color.divider') })
               .borderRadius(8)
               .onClick((): void => {
                 vm.setContextWindowChars(CONTEXT_STANDARD_CHAR_BUDGET);
               })
-            Button('Extended')
+            Button('V4 1M')
               .layoutWeight(1)
               .height(40)
               .fontSize(13)
-              .fontColor(vm.getContextWindowText() === 'Extended' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-              .backgroundColor(vm.getContextWindowText() === 'Extended' ? $r('app.color.button_primary') : $r('app.color.surface_background'))
+              .fontColor(vm.getContextWindowText() === 'V4 1M' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
+              .backgroundColor(vm.getContextWindowText() === 'V4 1M' ? $r('app.color.button_primary') : $r('app.color.surface_background'))
               .border({ width: 1, color: $r('app.color.divider') })
               .borderRadius(8)
               .onClick((): void => {

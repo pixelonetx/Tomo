@@ -19,7 +19,8 @@ import {
   StreamCallback,
   UsageInfo,
   createEmptyUsage,
-  getDeepSeekModelId
+  getDeepSeekModelId,
+  getDeepSeekThinkingType
 } from '../models/ApiModels';
 import {
   CHAT_DEFAULT_MAX_TOKENS,
@@ -213,12 +214,15 @@ export class DeepSeekService {
     const isReasoner: boolean = mode === ModelMode.REASONER;
     const request: ChatCompletionRequest = {
       model: getDeepSeekModelId(mode),
-      messages: this.toRequestMessages(messages, !isReasoner),
+      messages: this.toRequestMessages(messages, false),
       stream: true,
       stream_options: { include_usage: true },
+      thinking: { type: getDeepSeekThinkingType(mode) },
       max_tokens: isReasoner ? REASONER_DEFAULT_MAX_TOKENS : CHAT_DEFAULT_MAX_TOKENS
     };
-    if (!isReasoner) {
+    if (isReasoner) {
+      request.reasoning_effort = 'high';
+    } else {
       request.temperature = 1.0;
     }
     return request;
@@ -228,13 +232,16 @@ export class DeepSeekService {
     const isReasoner: boolean = mode === ModelMode.REASONER;
     const request: ChatCompletionRequest = {
       model: getDeepSeekModelId(mode),
-      messages: this.toRequestMessages(messages, true),
+      messages: this.toRequestMessages(messages, isReasoner),
       stream: false,
+      thinking: { type: getDeepSeekThinkingType(mode) },
       max_tokens: isReasoner ? REASONER_DEFAULT_MAX_TOKENS : CHAT_DEFAULT_MAX_TOKENS,
       tools: tools,
       tool_choice: 'auto'
     };
-    if (!isReasoner) {
+    if (isReasoner) {
+      request.reasoning_effort = 'high';
+    } else {
       request.temperature = 1.0;
     }
     return request;
@@ -251,14 +258,17 @@ export class DeepSeekService {
     const isReasoner: boolean = mode === ModelMode.REASONER;
     const request: ChatCompletionRequest = {
       model: getDeepSeekModelId(mode),
-      messages: this.toRequestMessages(messages, true),
+      messages: this.toRequestMessages(messages, isReasoner),
       stream: true,
       stream_options: { include_usage: true },
+      thinking: { type: getDeepSeekThinkingType(mode) },
       max_tokens: isReasoner ? REASONER_DEFAULT_MAX_TOKENS : CHAT_DEFAULT_MAX_TOKENS,
       tools: tools,
       tool_choice: 'none'
     };
-    if (!isReasoner) {
+    if (isReasoner) {
+      request.reasoning_effort = 'high';
+    } else {
       request.temperature = 1.0;
     }
     return request;
