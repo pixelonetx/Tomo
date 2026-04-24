@@ -38,7 +38,7 @@ struct Index {
 
   build() {
     Navigation(this.navPathStack) {
-      Stack() {
+      Stack({ alignContent: Alignment.Bottom }) {
         this.ChatLayer();
         if (this.isSidebarOpen) {
           this.SidebarLayer();
@@ -53,7 +53,6 @@ struct Index {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.page_background'))
-    .hideNavBar(true)
     .mode(NavigationMode.Stack)
     .navDestination(this.routeMap)
     .bindSheet(this.showApiKeySheet, this.ApiKeySheetContent(), {
@@ -222,10 +221,9 @@ struct Index {
   @Builder
   private TypingIndicator() {
     Row({ space: 8 }) {
-      LoadingProgress()
-        .width(16)
-        .height(16)
-        .color($r('app.color.text_secondary'))
+      Text('...')
+        .fontSize(13)
+        .fontColor($r('app.color.text_secondary'))
       Text('Thinking')
         .fontSize(13)
         .fontColor($r('app.color.text_secondary'))
@@ -457,7 +455,6 @@ struct Index {
   @Builder
   private BottomOverlay() {
     Column() {
-      Blank()
       Row()
         .width('100%')
         .height(116)
@@ -472,7 +469,7 @@ struct Index {
       this.ChatInputBar()
     }
     .width('100%')
-    .height('100%')
+    .height(172)
     .justifyContent(FlexAlign.End)
   }
 
