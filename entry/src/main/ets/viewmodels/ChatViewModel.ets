@@ -1136,37 +1136,6 @@ export class ChatViewModel {
     return false;
   }
 
-  private cloneMessageForConversation(message: ChatMessage, conversationId: string): ChatMessage {
-    const cloned: ChatMessage = createMessage(conversationId, message.role, message.content);
-    cloned.reasoningContent = message.reasoningContent;
-    cloned.status = message.status;
-    cloned.errorMessage = message.errorMessage;
-    cloned.responseId = message.responseId;
-    cloned.model = message.model;
-    cloned.finishReason = message.finishReason;
-    cloned.systemFingerprint = message.systemFingerprint;
-    cloned.promptTokens = message.promptTokens;
-    cloned.completionTokens = message.completionTokens;
-    cloned.totalTokens = message.totalTokens;
-    cloned.reasoningTokens = message.reasoningTokens;
-    cloned.cacheHitTokens = message.cacheHitTokens;
-    cloned.cacheMissTokens = message.cacheMissTokens;
-    cloned.branchParentId = message.branchParentId;
-    cloned.branchIndex = message.branchIndex;
-    cloned.branchActive = message.branchActive;
-    cloned.pathParentId = message.pathParentId;
-    cloned.searchSources = message.searchSources.slice();
-    const toolCalls: ToolCallRecord[] = [];
-    for (let i = 0; i < message.toolCalls.length; i++) {
-      const record: ToolCallRecord = message.toolCalls[i];
-      toolCalls.push(createToolCallRecord(cloned.id, record.toolCallId, record.name, record.argumentsJson, record.resultJson, record.status));
-    }
-    cloned.toolCalls = toolCalls;
-    cloned.createdAt = message.createdAt;
-    cloned.updatedAt = Date.now();
-    return cloned;
-  }
-
   private appendAssistantContent(id: string, chunk: string): void {
     this.updateAssistantMessage(id, (message: ChatMessage): void => {
       message.content += chunk;
@@ -1234,33 +1203,6 @@ export class ChatViewModel {
       if (message.status === SendStatus.SENDING) {
         message.status = SendStatus.SUCCESS;
       }
-    }, true);
-  }
-
-  private completeSearchAssistantMessage(
-    id: string,
-    response: ChatCompletionResponse,
-    sources: SearchResult[],
-    toolCalls: ToolCallRecord[]
-  ): void {
-    this.isLoading = false;
-    this.updateAssistantMessage(id, (message: ChatMessage): void => {
-      message.content = response.content.length > 0 ? response.content : '未生成回答。';
-      message.reasoningContent = response.reasoningContent;
-      message.responseId = response.metadata.responseId;
-      message.model = response.metadata.model;
-      message.finishReason = response.metadata.finishReason;
-      message.systemFingerprint = response.metadata.systemFingerprint;
-      message.promptTokens = response.usage.promptTokens;
-      message.completionTokens = response.usage.completionTokens;
-      message.totalTokens = response.usage.totalTokens;
-      message.reasoningTokens = response.usage.reasoningTokens;
-      message.cacheHitTokens = response.usage.cacheHitTokens;
-      message.cacheMissTokens = response.usage.cacheMissTokens;
-      message.searchSources = sources;
-      message.toolCalls = toolCalls;
-      message.status = SendStatus.SUCCESS;
-      message.errorMessage = '';
     }, true);
   }
 

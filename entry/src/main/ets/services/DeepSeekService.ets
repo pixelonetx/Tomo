@@ -114,16 +114,6 @@ export class DeepSeekService {
     });
   }
 
-  async sendStreamToolFinal(messages: ApiMessage[], mode: ModelMode, tools: ApiToolDefinition[], callback: StreamCallback): Promise<void> {
-    if (this.apiKey.length === 0) {
-      callback.onError('请先配置 DeepSeek API Key。');
-      return;
-    }
-
-    const requestBody: ChatCompletionRequest = this.buildToolFinalRequestBody(messages, mode, tools);
-    await this.sendStreamRequest(requestBody, callback);
-  }
-
   async sendStreamToolRound(messages: ApiMessage[], mode: ModelMode, tools: ApiToolDefinition[], callback: StreamCallback): Promise<ChatCompletionResponse | null> {
     if (this.apiKey.length === 0) {
       callback.onError('请先配置 DeepSeek API Key。');
@@ -192,22 +182,6 @@ export class DeepSeekService {
       return null;
     }
     return parseBalanceResponse(text);
-  }
-
-  async sendToolRound(messages: ApiMessage[], mode: ModelMode, tools: ApiToolDefinition[]): Promise<ChatCompletionResponse | null> {
-    if (this.apiKey.length === 0) {
-      return null;
-    }
-    const requestBody: ChatCompletionRequest = this.buildToolRequestBody(messages, mode, tools);
-    const text: string = await this.requestText(
-      `${DEEPSEEK_BASE_URL}${DEEPSEEK_CHAT_ENDPOINT}`,
-      http.RequestMethod.POST,
-      JSON.stringify(requestBody)
-    );
-    if (text.length === 0) {
-      return null;
-    }
-    return parseChatCompletionResponse(text);
   }
 
   buildRequestBody(messages: ApiMessage[], mode: ModelMode): ChatCompletionRequest {

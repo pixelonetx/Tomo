@@ -1,5 +1,7 @@
 import { SearchResult, ToolCallRecord } from './SearchModels';
 
+let localIdCounter: number = 0;
+
 export enum MessageRole {
   USER = 'user',
   ASSISTANT = 'assistant',
@@ -87,6 +89,6 @@ export function createConversationTitle(content: string): string {
 }
 
 function createLocalId(prefix: string): string {
-  const randomPart: number = Math.floor(Math.random() * 1000000);
-  return `${prefix}_${Date.now()}_${randomPart}`;
+  localIdCounter++;
+  return `${prefix}_${Date.now()}_${localIdCounter}`;
 }

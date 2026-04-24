@@ -88,9 +88,11 @@ export default function localUnitTest() {
 
     it('creates local chat messages with expected role and content', 0, () => {
       const message = createMessage('conv_1', MessageRole.USER, 'hello');
+      const nextMessage = createMessage('conv_1', MessageRole.ASSISTANT, 'hi');
       expect(message.conversationId).assertEqual('conv_1');
       expect(message.role).assertEqual(MessageRole.USER);
       expect(message.content).assertEqual('hello');
+      expect(message.id === nextMessage.id).assertFalse();
     });
 
     it('loads conservative default settings', 0, () => {
