@@ -220,6 +220,23 @@ struct Index {
   }
 
   @Builder
+  private TypingIndicator() {
+    Row({ space: 8 }) {
+      LoadingProgress()
+        .width(16)
+        .height(16)
+        .color($r('app.color.text_secondary'))
+      Text('Thinking')
+        .fontSize(13)
+        .fontColor($r('app.color.text_secondary'))
+    }
+    .height(34)
+    .padding({ left: 12, right: 12 })
+    .backgroundColor($r('app.color.surface_subtle'))
+    .borderRadius(17)
+  }
+
+  @Builder
   private SmallIconButton(icon: Resource, action: () => void) {
     Row() {
       Image(icon)
@@ -275,14 +292,18 @@ struct Index {
           if (message.reasoningContent.length > 0) {
             this.ReasoningBlock(message)
           }
-          MarkdownMessageView({
-            content: message.content,
-            fontSize: this.vm.fontSize,
-            sources: message.searchSources,
-            onOpenLink: (url: string, title: string): void => {
-              this.openWebLink(url, title);
-            }
-          })
+          if (message.status === SendStatus.SENDING && message.content.length === 0 && message.reasoningContent.length === 0) {
+            this.TypingIndicator()
+          } else {
+            MarkdownMessageView({
+              content: message.content,
+              fontSize: this.vm.fontSize,
+              sources: message.searchSources,
+              onOpenLink: (url: string, title: string): void => {
+                this.openWebLink(url, title);
+              }
+            })
+          }
           if (message.status === SendStatus.FAILED && message.errorMessage.length > 0) {
             Text(message.errorMessage)
               .fontSize(Math.max(this.vm.fontSize - 2, 12))
@@ -541,7 +562,8 @@ struct Index {
           this.isSidebarOpen = false;
         })
       }
-      .width(316)
+      .width('84%')
+      .constraintSize({ maxWidth: 316 })
       .height('100%')
       .padding({ left: 18, right: 18, top: 56, bottom: 18 })
       .backgroundColor($r('app.color.surface_background'))

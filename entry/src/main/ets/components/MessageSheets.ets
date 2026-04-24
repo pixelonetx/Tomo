@@ -124,6 +124,8 @@ export function MessageDetailSheet(
 
     DetailRow('Role', getRole(message))
     DetailRow('Status', getStatus(message))
+    DetailRow('Created', getCreatedAt(message))
+    DetailRow('Updated', getUpdatedAt(message))
     DetailRow('Model', getModel(message))
     DetailRow('Finish reason', getFinishReason(message))
     DetailRow('Response ID', getResponseId(message))
@@ -260,6 +262,14 @@ function getStatus(message: ChatMessage | null): string {
   return message === null ? '' : message.status;
 }
 
+function getCreatedAt(message: ChatMessage | null): string {
+  return message === null ? '' : formatTimestamp(message.createdAt);
+}
+
+function getUpdatedAt(message: ChatMessage | null): string {
+  return message === null ? '' : formatTimestamp(message.updatedAt);
+}
+
 function getModel(message: ChatMessage | null): string {
   return message === null ? '' : message.model;
 }
@@ -322,6 +332,8 @@ function getSourcesText(message: ChatMessage | null): string {
 function getDetailsText(message: ChatMessage | null): string {
   return `Role: ${getRole(message)}\n` +
     `Status: ${getStatus(message)}\n` +
+    `Created: ${getCreatedAt(message)}\n` +
+    `Updated: ${getUpdatedAt(message)}\n` +
     `Model: ${getModel(message)}\n` +
     `Finish reason: ${getFinishReason(message)}\n` +
     `Response ID: ${getResponseId(message)}\n` +
@@ -341,4 +353,24 @@ function getHostFromUrl(url: string): string {
     return noProtocol;
   }
   return noProtocol.substring(0, slashIndex);
+}
+
+function formatTimestamp(value: number): string {
+  if (value <= 0) {
+    return '';
+  }
+  const date: Date = new Date(value);
+  const year: number = date.getFullYear();
+  const month: string = padTime(date.getMonth() + 1);
+  const day: string = padTime(date.getDate());
+  const hours: string = padTime(date.getHours());
+  const minutes: string = padTime(date.getMinutes());
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
+function padTime(value: number): string {
+  if (value < 10) {
+    return `0${value}`;
+  }
+  return `${value}`;
 }
