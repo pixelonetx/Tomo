@@ -139,12 +139,14 @@ export struct WebBrowserDestination {
     .menus([
       {
         value: 'Refresh',
+        icon: $r('app.media.lucide_refresh_cw'),
         action: (): void => {
           this.refresh();
         }
       },
       {
         value: 'Browser',
+        icon: $r('app.media.lucide_external_link'),
         action: (): void => {
           this.openExternal();
         }

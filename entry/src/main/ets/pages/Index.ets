@@ -164,6 +164,98 @@ struct Index {
   }
 
   @Builder
+  private ToolbarIconButton(icon: Resource, action: () => void) {
+    Row() {
+      Image(icon)
+        .width(17)
+        .height(17)
+        .objectFit(ImageFit.Contain)
+    }
+    .width(36)
+    .height(36)
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor($r('app.color.surface_background'))
+    .border({ width: 1, color: $r('app.color.divider') })
+    .borderRadius(18)
+    .onClick(action)
+  }
+
+  @Builder
+  private PillIconButton(icon: Resource, label: string, action: () => void, selected: boolean = false, primary: boolean = false) {
+    Row({ space: 6 }) {
+      Image(icon)
+        .width(16)
+        .height(16)
+        .objectFit(ImageFit.Contain)
+      if (label.length > 0) {
+        Text(label)
+          .fontSize(13)
+          .fontColor(primary ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
+      }
+    }
+    .height(38)
+    .padding({ left: label.length > 0 ? 12 : 10, right: label.length > 0 ? 12 : 10 })
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor(primary ? $r('app.color.button_primary') : (selected ? $r('app.color.surface_pressed') : $r('app.color.surface_background')))
+    .border({ width: primary ? 0 : 1, color: $r('app.color.divider') })
+    .borderRadius(19)
+    .onClick(action)
+  }
+
+  @Builder
+  private MessageActionButton(icon: Resource, label: string, action: () => void) {
+    Row({ space: 4 }) {
+      Image(icon)
+        .width(14)
+        .height(14)
+        .objectFit(ImageFit.Contain)
+      Text(label)
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+    }
+    .height(30)
+    .padding({ left: 6, right: 6 })
+    .borderRadius(7)
+    .onClick(action)
+  }
+
+  @Builder
+  private SmallIconButton(icon: Resource, action: () => void) {
+    Row() {
+      Image(icon)
+        .width(14)
+        .height(14)
+        .objectFit(ImageFit.Contain)
+    }
+    .width(36)
+    .height(28)
+    .justifyContent(FlexAlign.Center)
+    .border({ width: 1, color: $r('app.color.divider') })
+    .borderRadius(8)
+    .onClick(action)
+  }
+
+  @Builder
+  private SidebarButton(icon: Resource, label: string, action: () => void, primary: boolean = false) {
+    Row({ space: 8 }) {
+      Image(icon)
+        .width(16)
+        .height(16)
+        .objectFit(ImageFit.Contain)
+      Text(label)
+        .fontSize(14)
+        .fontColor(primary ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
+    }
+    .width('100%')
+    .height(40)
+    .padding({ left: 12, right: 12 })
+    .backgroundColor(primary ? $r('app.color.button_primary') : Color.Transparent)
+    .border({ width: primary ? 0 : 1, color: $r('app.color.divider') })
+    .borderRadius(8)
+    .onClick(action)
+  }
+
+  @Builder
   private MessageRow(message: ChatMessage) {
     Row() {
       if (message.role === MessageRole.USER) {
@@ -209,33 +301,17 @@ struct Index {
           }
           if (message.role === MessageRole.ASSISTANT && this.vm.getAssistantBranchCount(message) > 1) {
             Row({ space: 8 }) {
-              Button('<')
-                .width(36)
-                .height(28)
-                .fontSize(12)
-                .fontColor($r('app.color.text_secondary'))
-                .backgroundColor(Color.Transparent)
-                .border({ width: 1, color: $r('app.color.divider') })
-                .borderRadius(8)
-                .onClick((): void => {
-                  this.vm.switchAssistantBranch(message.branchParentId, -1);
-                })
+              this.SmallIconButton($r('app.media.lucide_chevron_left'), (): void => {
+                this.vm.switchAssistantBranch(message.branchParentId, -1);
+              })
               Text(`${this.vm.getAssistantBranchPosition(message)} / ${this.vm.getAssistantBranchCount(message)}`)
                 .fontSize(12)
                 .fontColor($r('app.color.text_secondary'))
                 .textAlign(TextAlign.Center)
                 .width(48)
-              Button('>')
-                .width(36)
-                .height(28)
-                .fontSize(12)
-                .fontColor($r('app.color.text_secondary'))
-                .backgroundColor(Color.Transparent)
-                .border({ width: 1, color: $r('app.color.divider') })
-                .borderRadius(8)
-                .onClick((): void => {
-                  this.vm.switchAssistantBranch(message.branchParentId, 1);
-                })
+              this.SmallIconButton($r('app.media.lucide_chevron_right'), (): void => {
+                this.vm.switchAssistantBranch(message.branchParentId, 1);
+              })
             }
             .width('100%')
           }
@@ -251,66 +327,36 @@ struct Index {
       Blank()
         .layoutWeight(message.role === MessageRole.USER ? 1 : 0)
 
-      Button('Copy')
-        .fontSize(12)
-        .fontColor($r('app.color.text_secondary'))
-        .backgroundColor(Color.Transparent)
-        .height(30)
-        .onClick((): void => {
-          this.copyText(message.content);
-        })
+      this.MessageActionButton($r('app.media.lucide_copy'), 'Copy', (): void => {
+        this.copyText(message.content);
+      })
 
-      Button('Details')
-        .fontSize(12)
-        .fontColor($r('app.color.text_secondary'))
-        .backgroundColor(Color.Transparent)
-        .height(30)
-        .onClick((): void => {
-          this.selectedMessageId = message.id;
-          this.showMessageDetailSheet = true;
-        })
+      this.MessageActionButton($r('app.media.lucide_info'), 'Details', (): void => {
+        this.selectedMessageId = message.id;
+        this.showMessageDetailSheet = true;
+      })
 
       if (message.role === MessageRole.ASSISTANT && message.status === SendStatus.FAILED) {
-        Button('Retry')
-          .fontSize(12)
-          .fontColor($r('app.color.text_secondary'))
-          .backgroundColor(Color.Transparent)
-          .height(30)
-          .onClick((): void => {
-            this.vm.retryLastMessage();
-          })
+        this.MessageActionButton($r('app.media.lucide_rotate_ccw'), 'Retry', (): void => {
+          this.vm.retryLastMessage();
+        })
       }
 
       if (message.role === MessageRole.ASSISTANT && message.status !== SendStatus.SENDING) {
-        Button('Regenerate')
-          .fontSize(12)
-          .fontColor($r('app.color.text_secondary'))
-          .backgroundColor(Color.Transparent)
-          .height(30)
-          .onClick((): void => {
-            this.vm.regenerateAssistantMessage(message.id);
-          })
+        this.MessageActionButton($r('app.media.lucide_rotate_ccw'), 'Regenerate', (): void => {
+          this.vm.regenerateAssistantMessage(message.id);
+        })
       }
 
       if (message.role === MessageRole.USER) {
-        Button('Edit')
-          .fontSize(12)
-          .fontColor($r('app.color.text_secondary'))
-          .backgroundColor(Color.Transparent)
-          .height(30)
-          .onClick((): void => {
-            this.openEditMessageSheet(message);
-          })
+        this.MessageActionButton($r('app.media.lucide_pencil'), 'Edit', (): void => {
+          this.openEditMessageSheet(message);
+        })
       }
 
-      Button('Delete')
-        .fontSize(12)
-        .fontColor($r('app.color.text_secondary'))
-        .backgroundColor(Color.Transparent)
-        .height(30)
-        .onClick((): void => {
-          this.showDeleteMessageConfirm(message.id);
-        })
+      this.MessageActionButton($r('app.media.lucide_trash_2'), 'Delete', (): void => {
+        this.showDeleteMessageConfirm(message.id);
+      })
     }
     .width('100%')
     .constraintSize({ maxWidth: 860 })
@@ -358,16 +404,9 @@ struct Index {
           ]
         })
       Row() {
-        Button('Menu')
-          .fontSize(13)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor($r('app.color.surface_background'))
-          .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(18)
-          .height(36)
-          .onClick((): void => {
-            this.isSidebarOpen = !this.isSidebarOpen;
-          })
+        this.ToolbarIconButton($r('app.media.lucide_menu'), (): void => {
+          this.isSidebarOpen = !this.isSidebarOpen;
+        })
 
         Blank()
 
@@ -380,16 +419,9 @@ struct Index {
 
         Blank()
 
-        Button('New')
-          .fontSize(13)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor($r('app.color.surface_background'))
-          .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(18)
-          .height(36)
-          .onClick((): void => {
-            this.vm.createNewConversation();
-          })
+        this.ToolbarIconButton($r('app.media.lucide_plus'), (): void => {
+          this.vm.createNewConversation();
+        })
       }
       .width('100%')
       .height(52)
@@ -426,16 +458,9 @@ struct Index {
   @Builder
   private ChatInputBar() {
     Row({ space: 8 }) {
-      Button(this.vm.webSearchEnabled ? 'Search On' : 'Search')
-        .fontSize(12)
-        .fontColor($r('app.color.text_primary'))
-        .backgroundColor(this.vm.webSearchEnabled ? $r('app.color.surface_pressed') : $r('app.color.surface_background'))
-        .border({ width: 1, color: $r('app.color.divider') })
-        .borderRadius(18)
-        .height(38)
-        .onClick((): void => {
-          this.vm.toggleWebSearch();
-        })
+      this.PillIconButton($r('app.media.lucide_search'), this.vm.webSearchEnabled ? 'Search on' : 'Search', (): void => {
+        this.vm.toggleWebSearch();
+      }, this.vm.webSearchEnabled)
 
       Row({ space: 8 }) {
         TextArea({ placeholder: 'Ask DeepSeek', text: this.vm.inputText })
@@ -450,19 +475,13 @@ struct Index {
             this.vm.inputText = value;
           })
 
-        Button(this.vm.isLoading ? 'Stop' : 'Send')
-          .fontSize(13)
-          .fontColor($r('app.color.text_on_primary'))
-          .backgroundColor($r('app.color.button_primary'))
-          .borderRadius(18)
-          .height(36)
-          .onClick((): void => {
-            if (this.vm.isLoading) {
-              this.vm.stopGenerating();
-            } else {
-              this.vm.sendMessage();
-            }
-          })
+        this.PillIconButton(this.vm.isLoading ? $r('app.media.lucide_square_on_primary') : $r('app.media.lucide_send_horizontal_on_primary'), '', (): void => {
+          if (this.vm.isLoading) {
+            this.vm.stopGenerating();
+          } else {
+            this.vm.sendMessage();
+          }
+        }, false, true)
       }
       .layoutWeight(1)
       .constraintSize({ minHeight: 44 })
@@ -485,16 +504,10 @@ struct Index {
           .fontColor($r('app.color.text_primary'))
           .width('100%')
 
-        Button('New chat')
-          .width('100%')
-          .height(40)
-          .fontColor($r('app.color.text_on_primary'))
-          .backgroundColor($r('app.color.button_primary'))
-          .borderRadius(10)
-          .onClick((): void => {
-            this.vm.createNewConversation();
-            this.isSidebarOpen = false;
-          })
+        this.SidebarButton($r('app.media.lucide_plus_on_primary'), 'New chat', (): void => {
+          this.vm.createNewConversation();
+          this.isSidebarOpen = false;
+        }, true)
 
         List() {
           ForEach(this.vm.conversations, (conversation: Conversation) => {
@@ -518,29 +531,15 @@ struct Index {
         .layoutWeight(1)
         .scrollBar(BarState.Off)
 
-        Button('Settings')
-          .width('100%')
-          .height(40)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor(Color.Transparent)
-          .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(8)
-          .onClick((): void => {
-            this.navPathStack.pushPath({ name: SETTINGS_ROUTE });
-            this.isSidebarOpen = false;
-          })
+        this.SidebarButton($r('app.media.lucide_settings'), 'Settings', (): void => {
+          this.navPathStack.pushPath({ name: SETTINGS_ROUTE });
+          this.isSidebarOpen = false;
+        })
 
-        Button('About & licenses')
-          .width('100%')
-          .height(40)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor(Color.Transparent)
-          .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(8)
-          .onClick((): void => {
-            this.showAboutSheet = true;
-            this.isSidebarOpen = false;
-          })
+        this.SidebarButton($r('app.media.lucide_info'), 'About & licenses', (): void => {
+          this.showAboutSheet = true;
+          this.isSidebarOpen = false;
+        })
       }
       .width(316)
       .height('100%')
@@ -603,10 +602,17 @@ struct Index {
           'TeX math rendering for inline and display formulas inside assistant messages.',
           'https://katex.org/'
         )
+        this.OpenSourceLibraryBlock(
+          'Lucide',
+          'latest',
+          'ISC',
+          'Interface icons used across chat, settings, message actions and the built-in browser.',
+          'https://lucide.dev/'
+        )
       }
       .width('100%')
 
-      Text('Bundled files are stored under resources/rawfile/markdown. Full license texts are included as LICENSE-markdown-it.txt and LICENSE-katex.txt.')
+      Text('Bundled files are stored under resources/rawfile. Full license texts are included for markdown-it, KaTeX and Lucide.')
         .fontSize(12)
         .fontColor($r('app.color.text_secondary'))
         .lineHeight(18)
@@ -912,9 +918,14 @@ struct Index {
       'License: MIT\n' +
       'Website: https://katex.org/\n' +
       'Usage: TeX math rendering for inline and display formulas inside assistant messages.\n\n' +
+      'Lucide\n' +
+      'License: ISC\n' +
+      'Website: https://lucide.dev/\n' +
+      'Usage: Interface icons used across chat, settings, message actions and the built-in browser.\n\n' +
       'Bundled license files:\n' +
       'resources/rawfile/markdown/LICENSE-markdown-it.txt\n' +
-      'resources/rawfile/markdown/LICENSE-katex.txt';
+      'resources/rawfile/markdown/LICENSE-katex.txt\n' +
+      'resources/rawfile/LICENSE-lucide.txt';
   }
 
 }

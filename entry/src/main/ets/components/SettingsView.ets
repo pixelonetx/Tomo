@@ -3,6 +3,49 @@ import { CONTEXT_EXTENDED_CHAR_BUDGET, CONTEXT_STANDARD_CHAR_BUDGET } from '../s
 import { ChatViewModel } from '../viewmodels/ChatViewModel';
 
 @Builder
+function SettingsIconButton(icon: Resource, label: string, action: () => void, primary: boolean = false) {
+  Row({ space: 7 }) {
+    Image(icon)
+      .width(15)
+      .height(15)
+      .objectFit(ImageFit.Contain)
+    Text(label)
+      .fontSize(13)
+      .fontColor(primary ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
+      .maxLines(1)
+      .textOverflow({ overflow: TextOverflow.Ellipsis })
+  }
+  .layoutWeight(1)
+  .height(42)
+  .padding({ left: 10, right: 10 })
+  .justifyContent(FlexAlign.Center)
+  .backgroundColor(primary ? $r('app.color.button_primary') : $r('app.color.surface_background'))
+  .border({ width: primary ? 0 : 1, color: $r('app.color.divider') })
+  .borderRadius(10)
+  .onClick(action)
+}
+
+@Builder
+function SettingsWideIconButton(icon: Resource, label: string, action: () => void) {
+  Row({ space: 8 }) {
+    Image(icon)
+      .width(16)
+      .height(16)
+      .objectFit(ImageFit.Contain)
+    Text(label)
+      .fontSize(14)
+      .fontColor($r('app.color.text_primary'))
+  }
+  .width('100%')
+  .height(42)
+  .padding({ left: 12, right: 12 })
+  .backgroundColor($r('app.color.surface_background'))
+  .border({ width: 1, color: $r('app.color.divider') })
+  .borderRadius(8)
+  .onClick(action)
+}
+
+@Builder
 export function ApiKeySettingsPanel(
   vm: ChatViewModel,
   onDeepSeekSaved: () => void = (): void => {
@@ -54,38 +97,18 @@ export function ApiKeySettingsPanel(
     }
 
     Row({ space: 10 }) {
-      Button('Clear')
-        .layoutWeight(1)
-        .height(42)
-        .fontColor($r('app.color.text_primary'))
-        .backgroundColor($r('app.color.surface_background'))
-        .border({ width: 1, color: $r('app.color.divider') })
-        .borderRadius(10)
-        .onClick((): void => {
-          vm.clearApiKey();
-        })
+      SettingsIconButton($r('app.media.lucide_trash_2'), 'Clear', (): void => {
+        vm.clearApiKey();
+      })
 
-      Button('Check')
-        .layoutWeight(1)
-        .height(42)
-        .fontColor($r('app.color.text_primary'))
-        .backgroundColor($r('app.color.surface_background'))
-        .border({ width: 1, color: $r('app.color.divider') })
-        .borderRadius(10)
-        .onClick((): void => {
-          vm.checkApiKey();
-        })
+      SettingsIconButton($r('app.media.lucide_key_round'), 'Check', (): void => {
+        vm.checkApiKey();
+      })
 
-      Button('Save')
-        .layoutWeight(1)
-        .height(42)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor($r('app.color.button_primary'))
-        .borderRadius(10)
-        .onClick((): void => {
-          vm.saveApiKey(vm.apiKeyDraft);
-          onDeepSeekSaved();
-        })
+      SettingsIconButton($r('app.media.lucide_plus_on_primary'), 'Save', (): void => {
+        vm.saveApiKey(vm.apiKeyDraft);
+        onDeepSeekSaved();
+      }, true)
     }
     .width('100%')
 
@@ -110,38 +133,18 @@ export function ApiKeySettingsPanel(
       })
 
     Row({ space: 10 }) {
-      Button('Clear search')
-        .layoutWeight(1)
-        .height(42)
-        .fontColor($r('app.color.text_primary'))
-        .backgroundColor($r('app.color.surface_background'))
-        .border({ width: 1, color: $r('app.color.divider') })
-        .borderRadius(10)
-        .onClick((): void => {
-          vm.clearSearchApiKey();
-        })
+      SettingsIconButton($r('app.media.lucide_trash_2'), 'Clear', (): void => {
+        vm.clearSearchApiKey();
+      })
 
-      Button('Check search')
-        .layoutWeight(1)
-        .height(42)
-        .fontColor($r('app.color.text_primary'))
-        .backgroundColor($r('app.color.surface_background'))
-        .border({ width: 1, color: $r('app.color.divider') })
-        .borderRadius(10)
-        .onClick((): void => {
-          vm.checkSearchApiKey();
-        })
+      SettingsIconButton($r('app.media.lucide_search'), 'Check', (): void => {
+        vm.checkSearchApiKey();
+      })
 
-      Button('Save search')
-        .layoutWeight(1)
-        .height(42)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor($r('app.color.button_primary'))
-        .borderRadius(10)
-        .onClick((): void => {
-          vm.saveSearchApiKey(vm.searchApiKeyDraft);
-          onSearchSaved();
-        })
+      SettingsIconButton($r('app.media.lucide_plus_on_primary'), 'Save', (): void => {
+        vm.saveSearchApiKey(vm.searchApiKeyDraft);
+        onSearchSaved();
+      }, true)
     }
     .width('100%')
   }
@@ -427,16 +430,9 @@ export function SettingsView(
       }
 
       ListItem() {
-        Button('About & licenses')
-          .width('100%')
-          .height(42)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor($r('app.color.surface_background'))
-          .border({ width: 1, color: $r('app.color.divider') })
-          .borderRadius(8)
-          .onClick((): void => {
-            onShowAbout();
-          })
+        SettingsWideIconButton($r('app.media.lucide_info'), 'About & licenses', (): void => {
+          onShowAbout();
+        })
       }
     }
     .width('100%')
