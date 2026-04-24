@@ -47,10 +47,6 @@ export class ChatViewModel {
   modelMode: ModelMode = ModelMode.CHAT;
   fontSize: number = 15;
   webSearchEnabled: boolean = false;
-  backgroundEnabled: boolean = false;
-  backgroundImageUri: string = '';
-  backgroundOpacity: number = 0.3;
-  backgroundBlurRadius: number = 20;
   apiKeyConfigured: boolean = false;
   apiKeyDraft: string = '';
   searchApiKeyConfigured: boolean = false;
@@ -739,7 +735,7 @@ export class ChatViewModel {
 
   getContextWindowText(): string {
     if (this.settings.contextWindowChars >= CONTEXT_EXTENDED_CHAR_BUDGET) {
-      return 'Extended 1M-ready';
+      return 'Extended';
     }
     return 'Standard 128K';
   }
@@ -859,10 +855,6 @@ export class ChatViewModel {
     this.modelMode = settings.modelMode;
     this.fontSize = settings.fontSize;
     this.webSearchEnabled = settings.webSearchDefaultEnabled;
-    this.backgroundEnabled = settings.backgroundEnabled;
-    this.backgroundImageUri = settings.backgroundImageUri;
-    this.backgroundOpacity = settings.backgroundOpacity;
-    this.backgroundBlurRadius = settings.backgroundBlurRadius;
     this.apiKeyConfigured = settings.apiKeyConfigured;
     this.searchApiKeyConfigured = settings.searchApiKeyConfigured;
   }

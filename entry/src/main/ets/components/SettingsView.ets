@@ -240,12 +240,12 @@ export function SettingsView(
               .onClick((): void => {
                 vm.setContextWindowChars(CONTEXT_STANDARD_CHAR_BUDGET);
               })
-            Button('1M-ready')
+            Button('Extended')
               .layoutWeight(1)
               .height(40)
               .fontSize(13)
-              .fontColor(vm.getContextWindowText() === 'Extended 1M-ready' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
-              .backgroundColor(vm.getContextWindowText() === 'Extended 1M-ready' ? $r('app.color.button_primary') : Color.Transparent)
+              .fontColor(vm.getContextWindowText() === 'Extended' ? $r('app.color.text_on_primary') : $r('app.color.text_primary'))
+              .backgroundColor(vm.getContextWindowText() === 'Extended' ? $r('app.color.button_primary') : Color.Transparent)
               .border({ width: 1, color: $r('app.color.divider') })
               .borderRadius(8)
               .onClick((): void => {

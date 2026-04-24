@@ -12,10 +12,6 @@ export interface AppSettings {
   modelMode: ModelMode;
   themeMode: ThemeMode;
   fontSize: number;
-  backgroundEnabled: boolean;
-  backgroundImageUri: string;
-  backgroundBlurRadius: number;
-  backgroundOpacity: number;
   webSearchDefaultEnabled: boolean;
   searchProvider: string;
   searchApiKeyConfigured: boolean;
@@ -29,10 +25,6 @@ export function createDefaultSettings(): AppSettings {
     modelMode: ModelMode.CHAT,
     themeMode: ThemeMode.SYSTEM,
     fontSize: 15,
-    backgroundEnabled: false,
-    backgroundImageUri: '',
-    backgroundBlurRadius: 20,
-    backgroundOpacity: 0.3,
     webSearchDefaultEnabled: false,
     searchProvider: 'tavily',
     searchApiKeyConfigured: false,

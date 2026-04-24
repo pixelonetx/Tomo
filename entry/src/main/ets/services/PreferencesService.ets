@@ -14,10 +14,6 @@ export enum PreferenceKey {
   MODEL_MODE = 'modelMode',
   THEME_MODE = 'themeMode',
   FONT_SIZE = 'fontSize',
-  BACKGROUND_ENABLED = 'backgroundEnabled',
-  BACKGROUND_IMAGE_URI = 'backgroundImageUri',
-  BACKGROUND_BLUR_RADIUS = 'backgroundBlurRadius',
-  BACKGROUND_OPACITY = 'backgroundOpacity',
   WEB_SEARCH_DEFAULT_ENABLED = 'webSearchDefaultEnabled',
   SEARCH_PROVIDER = 'searchProvider',
   SEARCH_API_KEY = 'searchApiKey',
@@ -53,10 +49,6 @@ export class PreferencesService {
       modelMode: this.toModelMode(this.getString(store, PreferenceKey.MODEL_MODE, defaults.modelMode)),
       themeMode: this.toThemeMode(this.getString(store, PreferenceKey.THEME_MODE, defaults.themeMode)),
       fontSize: this.getNumber(store, PreferenceKey.FONT_SIZE, defaults.fontSize),
-      backgroundEnabled: this.getBoolean(store, PreferenceKey.BACKGROUND_ENABLED, defaults.backgroundEnabled),
-      backgroundImageUri: this.getString(store, PreferenceKey.BACKGROUND_IMAGE_URI, defaults.backgroundImageUri),
-      backgroundBlurRadius: this.getNumber(store, PreferenceKey.BACKGROUND_BLUR_RADIUS, defaults.backgroundBlurRadius),
-      backgroundOpacity: this.getNumber(store, PreferenceKey.BACKGROUND_OPACITY, defaults.backgroundOpacity),
       webSearchDefaultEnabled: this.getBoolean(store, PreferenceKey.WEB_SEARCH_DEFAULT_ENABLED, defaults.webSearchDefaultEnabled),
       searchProvider: this.getString(store, PreferenceKey.SEARCH_PROVIDER, defaults.searchProvider),
       searchApiKeyConfigured: this.getBoolean(store, PreferenceKey.SEARCH_API_KEY_CONFIGURED, defaults.searchApiKeyConfigured),
@@ -72,10 +64,6 @@ export class PreferencesService {
       store.putSync(PreferenceKey.MODEL_MODE, settings.modelMode);
       store.putSync(PreferenceKey.THEME_MODE, settings.themeMode);
       store.putSync(PreferenceKey.FONT_SIZE, settings.fontSize);
-      store.putSync(PreferenceKey.BACKGROUND_ENABLED, settings.backgroundEnabled);
-      store.putSync(PreferenceKey.BACKGROUND_IMAGE_URI, settings.backgroundImageUri);
-      store.putSync(PreferenceKey.BACKGROUND_BLUR_RADIUS, settings.backgroundBlurRadius);
-      store.putSync(PreferenceKey.BACKGROUND_OPACITY, settings.backgroundOpacity);
       store.putSync(PreferenceKey.WEB_SEARCH_DEFAULT_ENABLED, settings.webSearchDefaultEnabled);
       store.putSync(PreferenceKey.SEARCH_PROVIDER, settings.searchProvider);
       store.putSync(PreferenceKey.SEARCH_API_KEY_CONFIGURED, settings.searchApiKeyConfigured);

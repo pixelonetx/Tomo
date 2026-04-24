@@ -39,7 +39,6 @@ struct Index {
   build() {
     Navigation(this.navPathStack) {
       Stack() {
-        this.BackgroundLayer();
         this.ChatLayer();
         if (this.isSidebarOpen) {
           this.SidebarLayer();
@@ -119,17 +118,6 @@ struct Index {
           this.showAboutSheet = true;
         }
       );
-    }
-  }
-
-  @Builder
-  private BackgroundLayer() {
-    if (this.vm.backgroundEnabled && this.vm.backgroundImageUri.length > 0) {
-      Image(this.vm.backgroundImageUri)
-        .width('100%')
-        .height('100%')
-        .objectFit(ImageFit.Cover)
-        .opacity(this.vm.backgroundOpacity)
     }
   }
 

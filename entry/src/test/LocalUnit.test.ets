@@ -90,7 +90,6 @@ export default function localUnitTest() {
       const settings = createDefaultSettings();
       expect(settings.modelMode).assertEqual(ModelMode.CHAT);
       expect(settings.fontSize).assertEqual(15);
-      expect(settings.backgroundEnabled).assertFalse();
       expect(settings.webSearchDefaultEnabled).assertFalse();
       expect(settings.searchMaxResults).assertEqual(5);
       expect(settings.contextWindowChars).assertEqual(CONTEXT_STANDARD_CHAR_BUDGET);
